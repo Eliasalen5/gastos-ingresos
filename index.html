@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gastos & Ingresos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ══════ Login ══════ -->
+<div class="login-screen active" id="login-screen">
+    <div class="login-box">
+        <h1>💰 Gastos & Ingresos</h1>
+        <p class="subtitle">¿Quién está entrando?</p>
+        <div class="user-selection">
+            <button class="user-btn" data-user="nadia">
+                <div class="avatar" style="background:var(--nadia)">N</div>
+                <span>Nadia</span>
+            </button>
+            <button class="user-btn" data-user="elias">
+                <div class="avatar" style="background:var(--elias)">E</div>
+                <span>Elias</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════ App ══════ -->
+<div class="hidden" id="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <i class="fas fa-wallet"></i>
+            <h2>GastosApp</h2>
+        </div>
+        <div class="sidebar-user">
+            <div class="avatar" id="sidebar-avatar">N</div>
+            <span class="name" id="sidebar-username">-</span>
+        </div>
+        <nav class="sidebar-nav">
+            <div class="nav-item active" data-page="home"><i class="fas fa-home"></i> Home</div>
+            <div class="nav-item nav-expense" data-page="gastos"><i class="fas fa-arrow-down"></i> Gastos</div>
+            <div class="nav-item nav-income" data-page="ingresos"><i class="fas fa-arrow-up"></i> Ingresos</div>
+            <div class="nav-divider"></div>
+            <div class="nav-item" data-page="nuevo-gasto"><i class="fas fa-plus-circle"></i> Nuevo gasto</div>
+            <div class="nav-divider"></div>
+            <div class="nav-item" data-page="pagos"><i class="fas fa-credit-card"></i> Pagos</div>
+            <div class="nav-item" data-page="categorias"><i class="fas fa-tags"></i> Categorías</div>
+        </nav>
+        <div class="sidebar-footer">
+            <button id="logout-btn"><i class="fas fa-sign-out-alt"></i> Salir</button>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="main">
+        <header class="topbar">
+            <button id="menu-toggle"><i class="fas fa-bars"></i></button>
+            <div class="topbar-avatar" id="topbar-avatar">N</div>
+            <h1 id="page-title">Home</h1>
+            <div class="topbar-right">
+                <button class="notif-btn"><i class="fas fa-bell"></i><span class="notif-badge hidden" id="notif-badge">0</span></button>
+            </div>
+        </header>
+
+        <div class="content">
+
+            <!-- ══════ HOME ══════ -->
+            <div class="page active" id="page-home">
+                <div class="tabs">
+                    <button class="dash-tab active" data-view="individual">Mi resumen</button>
+                    <button class="dash-tab" data-view="grupal">Comparativa</button>
+                </div>
+
+                <!-- Individual -->
+                <div id="dash-individual">
+                    <div class="stats-row">
+                        <div class="stat-card"><div class="label">Balance</div><div class="value" id="balance-amount">$0</div></div>
+                        <div class="stat-card"><div class="label">Ingresos</div><div class="value" id="income-amount" style="color:var(--success)">$0</div></div>
+                        <div class="stat-card"><div class="label">Gastos</div><div class="value" id="expense-amount" style="color:var(--error)">$0</div></div>
+                    </div>
+                    <div class="card"><div class="card-title">Por categoría</div><canvas id="category-chart"></canvas></div>
+                    <div class="card"><div class="card-title">Pendientes de pago</div><div id="pending-count"></div></div>
+                    <div class="card"><div class="card-title">Últimas transacciones</div><div id="recent-transactions"></div></div>
+                    <div class="card"><div class="card-title">Próximo cobro</div><div id="next-payroll"></div></div>
+                </div>
+
+                <!-- Grupal -->
+                <div class="hidden" id="dash-grupal">
+                    <div class="stats-row">
+                        <div class="stat-card"><div class="label">Balance total</div><div class="value" id="grupal-balance">$0</div></div>
+                        <div class="stat-card"><div class="label">Ingresos</div><div class="value" id="grupal-income" style="color:var(--success)">$0</div></div>
+                        <div class="stat-card"><div class="label">Gastos</div><div class="value" id="grupal-expense" style="color:var(--error)">$0</div></div>
+                    </div>
+                    <div class="card"><div class="card-title">Comparación</div><canvas id="grupal-comparison-chart"></canvas></div>
+                    <div class="card"><div class="card-title">Gastos por usuario</div><div id="grupal-user-bars"></div></div>
+                </div>
+            </div>
+
+            <!-- ══════ GASTOS ══════ -->
+            <div class="page" id="page-gastos">
+                <div class="filters-row">
+                    <select class="form-control" id="filter-type"><option value="all">Todos</option><option value="expense">↓ Gastos</option><option value="income">↑ Ingresos</option></select>
+                    <select class="form-control" id="filter-category"><option value="all">Todas</option></select>
+                    <select class="form-control" id="filter-user"><option value="all">Todos</option><option value="nadia">Nadia</option><option value="elias">Elias</option></select>
+                    <input type="month" class="form-control" id="filter-date">
+                </div>
+                <div id="transactions-list"></div>
+            </div>
+
+            <!-- ══════ INGRESOS ══════ -->
+            <div class="page" id="page-ingresos">
+                <div id="ingresos-list"></div>
+            </div>
+
+            <!-- ══════ NUEVO GASTO / INGRESO ══════ -->
+            <div class="page" id="page-nuevo-gasto">
+                <div class="card">
+                    <h3 id="tx-form-title" style="margin-bottom:16px">Nuevo Gasto</h3>
+                    <form id="tx-form">
+                        <input type="hidden" id="tx-id">
+
+                        <div class="type-group">
+                            <button type="button" class="type-btn active" data-type="expense"><i class="fas fa-arrow-down"></i> Gasto</button>
+                            <button type="button" class="type-btn" data-type="income"><i class="fas fa-arrow-up"></i> Ingreso</button>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Monto</label>
+                            <input type="number" step="0.01" class="form-control" id="tx-amount" placeholder="0.00" required>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Categoría</label>
+                                <select class="form-control" id="tx-category" required></select>
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha</label>
+                                <input type="date" class="form-control" id="tx-date" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Descripción</label>
+                            <input type="text" class="form-control" id="tx-description" placeholder="Opcional">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="tx-paid" checked>
+                                <span>Pagado</span>
+                                <span class="muted" style="font-size:0.75rem">(Desmarcar si es de crédito, se paga después)</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Comprobante (opcional)</label>
+                            <input type="file" class="form-control" id="tx-receipt" accept="image/*">
+                            <img id="receipt-preview" class="hidden">
+                        </div>
+
+                        <div style="display:flex;gap:10px;margin-top:16px">
+                            <button type="submit" class="btn btn-primary btn-block"><i class="fas fa-save"></i> Guardar</button>
+                            <button type="button" class="btn btn-ghost" id="tx-cancel"><i class="fas fa-times"></i></button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ══════ PAGOS ══════ -->
+            <div class="page" id="page-pagos">
+                <div id="pagos-summary"></div>
+                <div id="pagos-list"></div>
+            </div>
+
+            <!-- ══════ CATEGORÍAS ══════ -->
+            <div class="page" id="page-categorias">
+                <button class="btn btn-primary" id="add-category-btn" style="margin-bottom:16px"><i class="fas fa-plus"></i> Nueva categoría</button>
+                <div class="cat-grid" id="categories-list"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Bottom Nav (mobile) -->
+    <nav class="bottom-nav">
+        <div class="bottom-nav-item active" data-page="home"><i class="fas fa-home"></i><span>Inicio</span></div>
+        <div class="bottom-nav-item" data-page="gastos"><i class="fas fa-arrow-down"></i><span>Gastos</span></div>
+        <div class="bottom-nav-item" data-page="nuevo-gasto"><i class="fas fa-plus-circle"></i><span>Nuevo</span></div>
+        <div class="bottom-nav-item" data-page="pagos"><i class="fas fa-credit-card"></i><span>Pagos</span></div>
+    </nav>
+</div>
+
+<!-- ══════ Modals ══════ -->
+<!-- Categoría Modal -->
+<div class="modal hidden" id="category-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="category-modal-title">Nueva Categoría</h3>
+            <button class="modal-close"><i class="fas fa-times"></i></button>
+        </div>
+        <form id="category-form">
+            <input type="hidden" id="cat-id">
+            <div class="form-group"><label>Nombre</label><input type="text" class="form-control" id="cat-name" required></div>
+            <div class="form-row">
+                <div class="form-group"><label>Tipo</label><select class="form-control" id="cat-type"><option value="expense">Gasto</option><option value="income">Ingreso</option></select></div>
+                <div class="form-group"><label>Color</label><input type="color" id="cat-color" value="#6C63FF"></div>
+            </div>
+            <div class="form-group"><label>Ícono</label><div class="icon-picker" id="icon-picker"></div></div>
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px"><i class="fas fa-save"></i> Guardar</button>
+        </form>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-container"></div>
+
+<!-- ══════ Scripts ══════ -->
+<script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-storage-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script src="js/firebase-config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/categories.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/transactions.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
