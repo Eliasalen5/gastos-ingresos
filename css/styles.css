@@ -41,16 +41,20 @@ body {
 .login-screen.active { display: flex; }
 
 .login-box {
-    background: url('../img/us.jpg') center/cover no-repeat;
+    background: url('../img/us.jpg') center 30%/cover no-repeat;
     border-radius: var(--radius);
-    padding: 40px 32px;
+    padding: 48px 32px 40px;
     text-align: center;
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    max-width: 360px;
-    width: 90%;
+    max-width: 400px;
+    width: 92%;
     color: #fff;
     position: relative;
     overflow: hidden;
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 .login-box::before {
     content: '';
