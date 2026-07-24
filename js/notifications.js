@@ -1,7 +1,7 @@
 const Notifications = {
     init() {
         this.requestPermission();
-        setInterval(() => this.check(), 60 * 60 * 1000);
+        setInterval(() => this.check(), 30 * 1000);
         this.check();
     },
 
@@ -21,12 +21,7 @@ const Notifications = {
         }
 
         if (userId === 'elias') {
-            const early = Utils.getNthBusinessDay(now.getFullYear(), now.getMonth() + 1, 1, 3);
-            const late = Utils.getNthBusinessDay(now.getFullYear(), now.getMonth() + 1, 16, 3);
-            const nextEarly = Utils.getNthBusinessDay(now.getFullYear(), now.getMonth() + 2, 1, 3);
-
-            const candidates = [early, late, nextEarly].filter(d => d >= today);
-            return candidates[0] || nextEarly;
+            return today;
         }
         return null;
     },
