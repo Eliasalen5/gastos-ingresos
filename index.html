@@ -153,11 +153,11 @@
                         </div>
 
                         <div class="form-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="tx-paid" checked>
-                                <span>Pagado</span>
-                                <span class="muted" style="font-size:0.75rem">(Desmarcar si es de crédito, se paga después)</span>
-                            </label>
+                            <label>Método de pago</label>
+                            <div class="pay-group">
+                                <button type="button" class="pay-btn active" data-method="debito"><i class="fas fa-money-check-alt"></i> Débito</button>
+                                <button type="button" class="pay-btn" data-method="credito"><i class="fas fa-credit-card"></i> Crédito</button>
+                            </div>
                         </div>
 
                         <div class="form-group">

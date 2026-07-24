@@ -18,6 +18,13 @@ const Transactions = {
             });
         });
 
+        document.querySelectorAll('.pay-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+
         document.getElementById('tx-receipt')?.addEventListener('change', (e) => {
             const f = e.target.files[0];
             if (f) {
@@ -57,7 +64,8 @@ const Transactions = {
         const categoryId = document.getElementById('tx-category').value;
         const description = document.getElementById('tx-description').value.trim();
         const date = document.getElementById('tx-date').value;
-        const paid = document.getElementById('tx-paid').checked;
+        const paymentMethod = document.querySelector('.pay-btn.active').dataset.method;
+        const paid = paymentMethod === 'debito';
 
         if (!amount || !categoryId || !date) {
             App.toast('Completá todos los campos', 'error');
@@ -65,7 +73,7 @@ const Transactions = {
         }
 
         const data = {
-            type, amount, categoryId, description, date, paid,
+            type, amount, categoryId, description, date, paymentMethod, paid,
             userId: Auth.currentUser,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
@@ -130,7 +138,10 @@ const Transactions = {
         document.getElementById('tx-amount').value = tx.amount;
         document.getElementById('tx-description').value = tx.description || '';
         document.getElementById('tx-date').value = tx.date;
-        document.getElementById('tx-paid').checked = tx.paid !== false;
+
+        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+        const method = tx.paymentMethod || (tx.paid !== false ? 'debito' : 'credito');
+        document.querySelector(`.pay-btn[data-method="${method}"]`)?.classList.add('active');
 
         setTimeout(() => {
             document.getElementById('tx-category').value = tx.categoryId;
@@ -150,6 +161,8 @@ const Transactions = {
         document.getElementById('receipt-preview').classList.add('hidden');
         document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
         document.querySelector('.type-btn[data-type="expense"]').classList.add('active');
+        document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
+        document.querySelector('.pay-btn[data-method="debito"]').classList.add('active');
         this.updateCategorySelect();
     },
 
