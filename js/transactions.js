@@ -84,6 +84,10 @@ const Transactions = {
                 }
             }
             App.toast('Guardado', 'success');
+            const userName = Auth.currentUser === 'nadia' ? 'Nadia' : 'Elias';
+            const typeLabel = type === 'expense' ? 'Gasto' : 'Ingreso';
+            const cat = Categories.getById(categoryId);
+            Notifications.add('transaction', `${userName} - ${typeLabel}`, `${description || (cat ? cat.name : '')} · ${Utils.formatMoney(amount)}`);
             this.resetForm();
             await this.load();
             App.navigate('gastos');
