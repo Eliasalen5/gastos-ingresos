@@ -102,24 +102,58 @@ const App = {
             return;
         }
 
-        el.innerHTML = pending.map(tx => {
-            const cat = Categories.getById(tx.categoryId);
+        const groups = {};
+        pending.forEach(tx => {
+            const key = `${tx.description || ''}_${tx.userId}_${tx.categoryId}`;
+            if (!groups[key]) groups[key] = { txs: [], description: tx.description, userId: tx.userId, categoryId: tx.categoryId, date: tx.date };
+            groups[key].txs.push(tx);
+        });
+
+        el.innerHTML = Object.values(groups).map(group => {
+            const cat = Categories.getById(group.categoryId);
             const catColor = cat ? cat.color : '#95A5A6';
             const catIcon = cat ? cat.icon : 'fa-tag';
-            const userName = tx.userId === 'nadia' ? 'Nadia' : 'Elias';
-            const userColor = tx.userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
+            const userName = group.userId === 'nadia' ? 'Nadia' : 'Elias';
+            const userColor = group.userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
+            const totalGroup = group.txs.reduce((s, tx) => s + tx.amount, 0);
+
+            const installments = group.txs[0]?.installments || 1;
+            const paidCount = group.txs.filter(tx => tx.paid).length;
+            const unpaidCount = group.txs.length;
+
+            let metaExtra = '';
+            if (installments > 1) {
+                metaExtra = ` · Cuota ${paidCount + 1}/${installments}`;
+            }
+
+            let items = '';
+            if (installments > 1) {
+                items = `<div class="inst-list">` + group.txs.filter(tx => !tx.paid).map(tx => {
+                    const num = tx.installmentNum || 1;
+                    return `<div class="inst-row">
+                        <div class="inst-info">
+                            <div class="inst-month">Cuota ${num}/${tx.installments}</div>
+                        </div>
+                        <div class="inst-amount fw700">${Utils.formatMoney(tx.amount)}</div>
+                        <button class="btn btn-sm btn-primary pago-btn" data-pay="${tx.id}"><i class="fas fa-check"></i></button>
+                    </div>`;
+                }).join('') + `</div>`;
+            }
 
             return `
-                <div class="pago-item">
-                    <div class="tx-icon" style="background:${catColor}"><i class="fas ${catIcon}"></i></div>
-                    <div class="tx-info">
-                        <div class="tx-desc">${tx.description || (cat ? cat.name : '')}</div>
-                        <div class="tx-meta"><span class="user-dot" style="background:${userColor}"></span> ${userName} · ${Utils.formatDate(tx.date)}</div>
+                <div class="pago-item-group">
+                    <div class="pago-header">
+                        <div class="tx-icon" style="background:${catColor}"><i class="fas ${catIcon}"></i></div>
+                        <div class="tx-info">
+                            <div class="tx-desc">${group.description || (cat ? cat.name : '')}</div>
+                            <div class="tx-meta"><span class="user-dot" style="background:${userColor}"></span> ${userName} · ${Utils.formatDate(group.date)}${metaExtra}</div>
+                        </div>
+                        <div class="tx-right">
+                            <div class="tx-value expense">-${Utils.formatMoney(totalGroup)}</div>
+                        </div>
                     </div>
-                    <div class="tx-right">
-                        <div class="tx-value expense">-${Utils.formatMoney(tx.amount)}</div>
-                    </div>
-                    <button class="btn btn-sm btn-primary pago-btn" data-pay="${tx.id}"><i class="fas fa-check"></i> Pagar</button>
+                    ${items}
+                    ${installments > 1 ? `<div class="pago-footer"><button class="btn btn-sm btn-primary" data-pay-all="${group.description}" data-user="${group.userId}"><i class="fas fa-check-double"></i> Pagar todas</button></div>` : `<div class="pago-footer"><button class="btn btn-sm btn-primary pago-btn" data-pay="${group.txs[0].id}"><i class="fas fa-check"></i> Pagar</button></div>`}
                 </div>`;
         }).join('');
 
@@ -129,6 +163,13 @@ const App = {
                 if (confirm('¿Marcar como pagado?')) {
                     await Transactions.markPaid(btn.dataset.pay);
                 }
+            });
+        });
+
+        el.querySelectorAll('[data-pay-all]').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await Transactions.markAllGroupPaid(btn.dataset.payAll, btn.dataset.user);
             });
         });
     },

@@ -815,18 +815,43 @@ canvas { max-height: 250px; }
     margin-bottom: 12px;
     font-size: 0.9rem;
 }
-.pago-item {
+.pago-item-group {
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+.pago-header {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 14px 16px;
-    background: var(--surface);
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--warning);
-    margin-bottom: 8px;
 }
-.pago-btn { white-space: nowrap; flex-shrink: 0; }
+.pago-footer {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    text-align: right;
+}
+.inst-list { border-top: 1px solid var(--border); }
+.inst-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+}
+.inst-row:last-child { border-bottom: none; }
+.inst-month { font-size: 0.82rem; font-weight: 600; }
+.inst-amount { flex: 1; text-align: right; font-size: 0.85rem; }
+.inst-badge {
+    font-size: 0.65rem;
+    background: rgba(108,99,255,0.15);
+    color: var(--primary);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+}
 
 /* ── Checkbox Label ── */
 .checkbox-label {

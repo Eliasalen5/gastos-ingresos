@@ -22,8 +22,14 @@ const Transactions = {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
+                const m = btn.dataset.method;
+                document.getElementById('installment-fields').classList.toggle('hidden', m !== 'credito');
+                this.updatePreview();
             });
         });
+
+        document.getElementById('tx-installments')?.addEventListener('change', () => this.updatePreview());
+        document.getElementById('tx-amount')?.addEventListener('input', () => this.updatePreview());
 
         document.getElementById('tx-receipt')?.addEventListener('change', (e) => {
             const f = e.target.files[0];
@@ -43,6 +49,15 @@ const Transactions = {
         const type = document.querySelector('.type-btn.active')?.dataset.type;
         const sel = document.getElementById('tx-category');
         sel.innerHTML = Categories.renderSelects(type === 'income' ? 'income' : 'expense');
+    },
+
+    updatePreview() {
+        const amt = parseFloat(document.getElementById('tx-amount').value) || 0;
+        const inst = parseInt(document.getElementById('tx-installments').value) || 1;
+        const el = document.getElementById('installment-preview');
+        el.textContent = (amt > 0 && inst > 1)
+            ? `${inst} cuotas de ${Utils.formatMoney(amt / inst)}`
+            : '';
     },
 
     async load() {
@@ -65,37 +80,46 @@ const Transactions = {
         const description = document.getElementById('tx-description').value.trim();
         const date = document.getElementById('tx-date').value;
         const paymentMethod = document.querySelector('.pay-btn.active').dataset.method;
-        const paid = paymentMethod === 'debito';
+        const installments = paymentMethod === 'credito' ? (parseInt(document.getElementById('tx-installments').value) || 1) : 1;
 
         if (!amount || !categoryId || !date) {
             App.toast('Completá todos los campos', 'error');
             return;
         }
 
-        const data = {
-            type, amount, categoryId, description, date, paymentMethod, paid,
-            userId: Auth.currentUser,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
         try {
-            const receiptFile = document.getElementById('tx-receipt').files[0];
-            if (receiptFile) {
-                data.receiptUrl = await StorageManager.upload(receiptFile, id || 'new');
-            }
             if (id) {
+                const paid = paymentMethod === 'debito';
+                const data = { type, amount, categoryId, description, date, paymentMethod, paid, userId: Auth.currentUser, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
                 await db.collection('transactions').doc(id).update(data);
+            } else if (installments > 1 && paymentMethod === 'credito') {
+                const installmentAmount = amount / installments;
+                for (let i = 1; i <= installments; i++) {
+                    await db.collection('transactions').add({
+                        type, amount: installmentAmount, categoryId, description, date,
+                        paymentMethod, paid: false,
+                        installments, installmentNum: i,
+                        userId: Auth.currentUser,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
             } else {
+                const paid = paymentMethod === 'debito';
+                const data = { type, amount, categoryId, description, date, paymentMethod, paid, userId: Auth.currentUser, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
                 const ref = await db.collection('transactions').add(data);
-                if (receiptFile && data.receiptUrl) {
-                    await db.collection('transactions').doc(ref.id).update({ receiptUrl: data.receiptUrl });
+                const receiptFile = document.getElementById('tx-receipt').files[0];
+                if (receiptFile) {
+                    const receiptUrl = await StorageManager.upload(receiptFile, ref.id);
+                    await db.collection('transactions').doc(ref.id).update({ receiptUrl });
                 }
             }
+
             App.toast('Guardado', 'success');
             const userName = Auth.currentUser === 'nadia' ? 'Nadia' : 'Elias';
             const typeLabel = type === 'expense' ? 'Gasto' : 'Ingreso';
             const cat = Categories.getById(categoryId);
-            Notifications.add('transaction', `${userName} - ${typeLabel}`, `${description || (cat ? cat.name : '')} · ${Utils.formatMoney(amount)}`);
+            const detail = installments > 1 ? `${description || (cat ? cat.name : '')} · ${installments} cuotas de ${Utils.formatMoney(amount / installments)}` : `${description || (cat ? cat.name : '')} · ${Utils.formatMoney(amount)}`;
+            Notifications.add('transaction', `${userName} - ${typeLabel}`, detail);
             this.resetForm();
             await this.load();
             App.navigate('gastos');
@@ -126,6 +150,24 @@ const Transactions = {
         }
     },
 
+    async markAllGroupPaid(description, userId) {
+        const pending = this.list.filter(tx =>
+            tx.description === description && tx.userId === userId && tx.paid === false && tx.installments > 1
+        );
+        if (pending.length === 0) return;
+        if (!confirm(`¿Pagar las ${pending.length} cuotas pendientes?`)) return;
+        try {
+            for (const tx of pending) {
+                await db.collection('transactions').doc(tx.id).update({ paid: true });
+            }
+            App.toast(`${pending.length} cuota(s) pagada(s)`, 'success');
+            await this.load();
+            App.refreshPage(App.currentPage);
+        } catch (e) {
+            App.toast('Error al pagar', 'error');
+        }
+    },
+
     editTx(tx) {
         App.navigate('nuevo-gasto');
         document.getElementById('tx-id').value = tx.id;
@@ -142,6 +184,13 @@ const Transactions = {
         document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
         const method = tx.paymentMethod || (tx.paid !== false ? 'debito' : 'credito');
         document.querySelector(`.pay-btn[data-method="${method}"]`)?.classList.add('active');
+        document.getElementById('installment-fields').classList.toggle('hidden', method !== 'credito');
+
+        if (tx.installments > 1) {
+            document.getElementById('tx-installments').value = tx.installments;
+            document.getElementById('tx-amount').value = tx.amount * tx.installments;
+            this.updatePreview();
+        }
 
         setTimeout(() => {
             document.getElementById('tx-category').value = tx.categoryId;
@@ -159,6 +208,8 @@ const Transactions = {
         document.getElementById('tx-id').value = '';
         document.getElementById('tx-form-title').textContent = 'Nuevo Gasto';
         document.getElementById('receipt-preview').classList.add('hidden');
+        document.getElementById('installment-fields').classList.add('hidden');
+        document.getElementById('installment-preview').textContent = '';
         document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
         document.querySelector('.type-btn[data-type="expense"]').classList.add('active');
         document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('active'));
@@ -209,12 +260,13 @@ const Transactions = {
             const userName = tx.userId === 'nadia' ? 'Nadia' : 'Elias';
             const userColor = tx.userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
             const paidBadge = tx.paid === false ? '<span class="pending-badge">Pendiente</span>' : '';
+            const instBadge = tx.installments > 1 ? ` <span class="inst-badge">Cuota ${tx.installmentNum}/${tx.installments}</span>` : '';
 
             return `
                 <div class="tx-item">
                     <div class="tx-icon" style="background:${catColor}"><i class="fas ${catIcon}"></i></div>
                     <div class="tx-info">
-                        <div class="tx-desc">${tx.description || (cat ? cat.name : '')} ${paidBadge}</div>
+                        <div class="tx-desc">${tx.description || (cat ? cat.name : '')} ${paidBadge}${instBadge}</div>
                         <div class="tx-meta">
                             <span class="user-dot" style="background:${userColor}"></span> ${userName}
                             · ${cat ? cat.name : ''}

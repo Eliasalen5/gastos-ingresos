@@ -160,6 +160,14 @@
                             </div>
                         </div>
 
+                        <div class="form-group hidden" id="installment-fields">
+                            <label>Cuotas</label>
+                            <div class="form-row">
+                                <input type="number" class="form-control" id="tx-installments" min="1" max="48" value="1">
+                                <div class="installment-preview" id="installment-preview"></div>
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label>Comprobante (opcional)</label>
                             <input type="file" class="form-control" id="tx-receipt" accept="image/*">
