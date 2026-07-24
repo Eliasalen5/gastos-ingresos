@@ -41,20 +41,43 @@ body {
 .login-screen.active { display: flex; }
 
 .login-box {
-    background: var(--surface);
+    background: url('../img/us.jpg') center/cover no-repeat;
     border-radius: var(--radius);
     padding: 40px 32px;
     text-align: center;
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     max-width: 360px;
     width: 90%;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
 }
-.login-box h1 { font-size: 1.6rem; margin-bottom: 4px; }
-.login-box .subtitle { color: var(--muted); margin-bottom: 28px; font-size: 0.9rem; }
+.login-box::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 0;
+}
+.login-box > * { position: relative; z-index: 1; }
+.login-title {
+    font-size: 1.8rem;
+    margin-bottom: 4px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+.heart {
+    display: inline-block;
+    animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+.login-box .subtitle { color: rgba(255,255,255,0.85); margin-bottom: 28px; font-size: 0.9rem; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
 .user-selection { display: flex; gap: 16px; justify-content: center; }
 .user-btn {
-    background: var(--surface2);
-    border: 2px solid var(--border);
+    background: rgba(0,0,0,0.4);
+    border: 2px solid rgba(255,255,255,0.3);
     border-radius: var(--radius);
     padding: 24px 28px;
     cursor: pointer;
@@ -63,7 +86,8 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    color: var(--text);
+    color: #fff;
+    backdrop-filter: blur(8px);
 }
 .user-btn:hover { border-color: var(--primary); transform: translateY(-2px); }
 .user-btn .avatar {
