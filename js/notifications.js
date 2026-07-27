@@ -14,6 +14,10 @@ const Notifications = {
         setInterval(() => this.checkPayday(), 60 * 60 * 1000);
         this.renderBadge();
         this.bindDropdown();
+        setInterval(() => {
+            this.load();
+            this.renderBadge();
+        }, 5000);
     },
 
     load() {
@@ -130,7 +134,6 @@ const Notifications = {
     },
 
     renderBadge() {
-        this.load();
         const badge = document.getElementById('notif-badge');
         const count = this.getUnreadCount();
         if (badge) {
@@ -144,18 +147,34 @@ const Notifications = {
         const dropdown = document.getElementById('notif-dropdown');
         if (!btn || !dropdown) return;
 
+        let isOpen = false;
+
+        const openDropdown = () => {
+            this.load();
+            this.markAllRead();
+            this.renderDropdown();
+            dropdown.classList.remove('hidden');
+            isOpen = true;
+        };
+
+        const closeDropdown = () => {
+            dropdown.classList.add('hidden');
+            isOpen = false;
+        };
+
         btn.addEventListener('click', (e) => {
+            e.preventDefault();
             e.stopPropagation();
-            dropdown.classList.toggle('hidden');
-            if (!dropdown.classList.contains('hidden')) {
-                this.markAllRead();
-                this.renderDropdown();
+            if (isOpen) {
+                closeDropdown();
+            } else {
+                openDropdown();
             }
         });
 
         document.addEventListener('click', (e) => {
-            if (!dropdown.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
-                dropdown.classList.add('hidden');
+            if (isOpen && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+                closeDropdown();
             }
         });
     },
