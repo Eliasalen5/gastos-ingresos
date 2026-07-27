@@ -1,8 +1,11 @@
 const Notifications = {
     list: [],
-    STORAGE_KEY: 'app_notifications',
     PAYDAY_KEY: 'app_payday_notified',
     MAX_ITEMS: 5,
+
+    getStorageKey(user) {
+        return `app_notifications_${user || Auth.currentUser}`;
+    },
 
     init() {
         this.load();
@@ -15,14 +18,14 @@ const Notifications = {
 
     load() {
         try {
-            this.list = JSON.parse(localStorage.getItem(this.STORAGE_KEY)) || [];
+            this.list = JSON.parse(localStorage.getItem(this.getStorageKey())) || [];
         } catch (e) {
             this.list = [];
         }
     },
 
     save() {
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.list));
+        localStorage.setItem(this.getStorageKey(), JSON.stringify(this.list));
     },
 
     requestPermission() {
@@ -31,7 +34,7 @@ const Notifications = {
         }
     },
 
-    add(type, title, body) {
+    add(type, title, body, targetUser) {
         const notif = {
             id: Date.now() + Math.random(),
             type,
@@ -40,11 +43,22 @@ const Notifications = {
             date: new Date().toISOString(),
             read: false
         };
-        this.list.unshift(notif);
-        if (this.list.length > this.MAX_ITEMS) this.list = this.list.slice(0, this.MAX_ITEMS);
-        this.save();
-        this.renderBadge();
-        this.renderDropdown();
+        const key = this.getStorageKey(targetUser);
+        let list;
+        try {
+            list = JSON.parse(localStorage.getItem(key)) || [];
+        } catch (e) {
+            list = [];
+        }
+        list.unshift(notif);
+        if (list.length > this.MAX_ITEMS) list = list.slice(0, this.MAX_ITEMS);
+        localStorage.setItem(key, JSON.stringify(list));
+
+        if (targetUser === Auth.currentUser || !targetUser) {
+            this.list = list;
+            this.renderBadge();
+            this.renderDropdown();
+        }
 
         if (type === 'transaction' && 'Notification' in window && Notification.permission === 'granted') {
             new Notification(title, {
@@ -91,7 +105,7 @@ const Notifications = {
                 if (!notified[key]) {
                     const name = userId === 'nadia' ? 'Nadia' : 'Elias';
                     const msg = days === 0 ? '¡Hoy es tu día de cobro!' : '¡Mañana es tu día de cobro!';
-                    this.add('payday', `${name}`, msg);
+                    this.add('payday', name, msg, userId);
                     this.sendPush(`${name}, ${msg}`, 'Toca para registrar tu ingreso');
                     notified[key] = true;
                     localStorage.setItem(this.PAYDAY_KEY, JSON.stringify(notified));

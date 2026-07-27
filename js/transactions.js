@@ -119,8 +119,8 @@ const Transactions = {
             const otherUser = Auth.currentUser === 'nadia' ? 'Elias' : 'Nadia';
             const typeLabel = type === 'expense' ? 'gastó' : 'recibió';
             const cat = Categories.getById(categoryId);
-            const detail = `${otherUser}, ${currentUser} ${typeLabel} ${Utils.formatMoney(amount)} ${description || (cat ? cat.name : '')}`;
-            Notifications.add('transaction', otherUser, detail);
+            const detail = `${currentUser} ${typeLabel} ${Utils.formatMoney(amount)} ${description || (cat ? cat.name : '')}`;
+            Notifications.add('transaction', otherUser, detail, otherUser.toLowerCase());
             this.resetForm();
             await this.load();
             App.navigate('gastos');
