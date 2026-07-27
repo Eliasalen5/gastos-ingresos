@@ -25,6 +25,7 @@ const Auth = {
     },
 
     logout() {
+        Notifications.destroy();
         this.currentUser = null;
         document.getElementById('app').classList.add('hidden');
         document.getElementById('login-screen').classList.add('active');

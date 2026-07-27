@@ -2,34 +2,34 @@ const Notifications = {
     list: [],
     PAYDAY_KEY: 'app_payday_notified',
     MAX_ITEMS: 10,
-
-    getStorageKey(user) {
-        return `app_notifications_${user || Auth.currentUser}`;
-    },
+    unsub: null,
 
     init() {
-        this.load();
         this.requestPermission();
+        this.listenForNotifications();
         this.checkPayday();
         setInterval(() => this.checkPayday(), 60 * 60 * 1000);
-        this.renderBadge();
         this.bindDropdown();
-        setInterval(() => {
-            this.load();
-            this.renderBadge();
-        }, 5000);
+        this.renderWidget();
     },
 
-    load() {
-        try {
-            this.list = JSON.parse(localStorage.getItem(this.getStorageKey())) || [];
-        } catch (e) {
-            this.list = [];
-        }
+    destroy() {
+        if (this.unsub) { this.unsub(); this.unsub = null; }
     },
 
-    save() {
-        localStorage.setItem(this.getStorageKey(), JSON.stringify(this.list));
+    listenForNotifications() {
+        if (this.unsub) this.unsub();
+        const user = Auth.currentUser;
+        if (!user) return;
+
+        this.unsub = db.collection('notifications')
+            .where('targetUser', '==', user)
+            .orderBy('date', 'desc')
+            .limit(this.MAX_ITEMS)
+            .onSnapshot(snap => {
+                this.list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                this.renderBadge();
+            });
     },
 
     requestPermission() {
@@ -38,31 +38,18 @@ const Notifications = {
         }
     },
 
-    add(type, title, body, targetUser) {
+    async add(type, title, body, targetUser) {
         const notif = {
-            id: Date.now() + Math.random(),
             type,
             title,
             body,
             date: new Date().toISOString(),
-            read: false
+            read: false,
+            targetUser
         };
-        const key = this.getStorageKey(targetUser);
-        let list;
         try {
-            list = JSON.parse(localStorage.getItem(key)) || [];
-        } catch (e) {
-            list = [];
-        }
-        list.unshift(notif);
-        if (list.length > this.MAX_ITEMS) list = list.slice(0, this.MAX_ITEMS);
-        localStorage.setItem(key, JSON.stringify(list));
-
-        if (targetUser === Auth.currentUser || !targetUser) {
-            this.list = list;
-            this.renderBadge();
-            this.renderDropdown();
-        }
+            await db.collection('notifications').add(notif);
+        } catch (e) { /* silent */ }
 
         if (type === 'transaction' && 'Notification' in window && Notification.permission === 'granted') {
             new Notification(title, {
@@ -70,6 +57,18 @@ const Notifications = {
                 icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="0.9em" font-size="90">💰</text></svg>'
             });
         }
+    },
+
+    async markAllRead() {
+        const unread = this.list.filter(n => !n.read);
+        if (unread.length === 0) return;
+        try {
+            const batch = db.batch();
+            unread.forEach(n => {
+                batch.update(db.collection('notifications').doc(n.id), { read: true });
+            });
+            await batch.commit();
+        } catch (e) { /* silent */ }
     },
 
     getNextPayDate(userId) {
@@ -116,7 +115,6 @@ const Notifications = {
                 }
             }
         });
-        this.renderBadge();
         this.renderWidget();
     },
 
@@ -149,12 +147,12 @@ const Notifications = {
 
         let isOpen = false;
 
-        const openDropdown = () => {
-            this.load();
-            this.markAllRead();
+        const openDropdown = async () => {
             this.renderDropdown();
             dropdown.classList.remove('hidden');
             isOpen = true;
+            await this.markAllRead();
+            this.renderDropdown();
         };
 
         const closeDropdown = () => {
@@ -179,22 +177,16 @@ const Notifications = {
         });
     },
 
-    markAllRead() {
-        this.list.forEach(n => n.read = true);
-        this.save();
-        this.renderBadge();
-    },
-
     renderDropdown() {
         const dropdown = document.getElementById('notif-dropdown');
         if (!dropdown) return;
-
-        this.load();
 
         if (this.list.length === 0) {
             dropdown.innerHTML = '<div class="notif-empty"><i class="fas fa-bell-slash"></i><p>Sin notificaciones</p></div>';
             return;
         }
+
+        const esc = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 
         dropdown.innerHTML = this.list.map(n => {
             const icons = { transaction: 'fa-exchange-alt', payday: 'fa-money-bill-wave' };
@@ -211,8 +203,8 @@ const Notifications = {
                 <div class="notif-item${unread}" data-page="${page}">
                     <div class="notif-icon" style="background:${color}"><i class="fas ${icon}"></i></div>
                     <div class="notif-content">
-                        <div class="notif-title">${n.title}</div>
-                        <div class="notif-body">${n.body}</div>
+                        <div class="notif-title">${esc(n.title)}</div>
+                        <div class="notif-body">${esc(n.body)}</div>
                         <div class="notif-time">${dateStr} ${timeStr}</div>
                     </div>
                 </div>`;
@@ -258,7 +250,7 @@ const Notifications = {
             document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
             document.querySelector('.type-btn[data-type="income"]').classList.add('active');
             Transactions.updateCategorySelect();
-            document.getElementById('tx-date').value = date.toISOString().split('T')[0];
+            document.getElementById('tx-date').value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
             document.getElementById('tx-description').value = `Cobro ${userId === 'nadia' ? 'Nadia' : 'Elias'}`;
         }
     }
