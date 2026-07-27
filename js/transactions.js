@@ -115,11 +115,12 @@ const Transactions = {
             }
 
             App.toast('Guardado', 'success');
+            const currentUser = Auth.currentUser === 'nadia' ? 'Nadia' : 'Elias';
             const otherUser = Auth.currentUser === 'nadia' ? 'Elias' : 'Nadia';
-            const typeLabel = type === 'expense' ? 'Gasto' : 'Ingreso';
+            const typeLabel = type === 'expense' ? 'gastó' : 'recibió';
             const cat = Categories.getById(categoryId);
-            const detail = installments > 1 ? `${description || (cat ? cat.name : '')} · ${installments} cuotas de ${Utils.formatMoney(amount / installments)}` : `${description || (cat ? cat.name : '')} · ${Utils.formatMoney(amount)}`;
-            Notifications.add('transaction', `${otherUser} - ${typeLabel}`, detail);
+            const detail = `${otherUser}, ${currentUser} ${typeLabel} ${Utils.formatMoney(amount)} ${description || (cat ? cat.name : '')}`;
+            Notifications.add('transaction', otherUser, detail);
             this.resetForm();
             await this.load();
             App.navigate('gastos');
