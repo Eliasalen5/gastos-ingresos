@@ -7,6 +7,15 @@ const App = {
             this.bindNav();
             this.bindMenu();
             Auth.init();
+            window.addEventListener('beforeunload', (e) => {
+                if (this.currentPage === 'nuevo-gasto') {
+                    const hasData = document.getElementById('tx-amount').value || document.getElementById('tx-description').value;
+                    if (hasData && !document.getElementById('tx-id').value) {
+                        e.preventDefault();
+                        e.returnValue = '';
+                    }
+                }
+            });
             this._bound = true;
         }
         document.getElementById('tx-date').value = Utils.todayStr();
@@ -39,6 +48,13 @@ const App = {
     },
 
     navigate(page) {
+        if (this.currentPage === 'nuevo-gasto' && page !== 'nuevo-gasto') {
+            const form = document.getElementById('tx-form');
+            const hasData = document.getElementById('tx-amount').value || document.getElementById('tx-description').value;
+            if (hasData && !document.getElementById('tx-id').value) {
+                if (!confirm('¿Salir sin guardar?')) return;
+            }
+        }
         this.currentPage = page;
         document.getElementById('notif-dropdown')?.classList.add('hidden');
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));

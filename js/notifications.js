@@ -135,7 +135,7 @@ const Notifications = {
         const badge = document.getElementById('notif-badge');
         const count = this.getUnreadCount();
         if (badge) {
-            badge.textContent = count;
+            badge.textContent = count > 0 ? count : '';
             badge.classList.toggle('hidden', count === 0);
         }
     },
