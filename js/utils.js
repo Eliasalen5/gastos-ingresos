@@ -1,7 +1,7 @@
 const Utils = {
     HOLIDAYS: [
-        '01-01', '02-20', '02-21', '03-24', '04-01', '04-02',
-        '05-01', '05-25', '06-17', '06-20', '07-09', '08-17',
+        '01-01', '02-16', '02-17', '03-24', '04-02', '04-03',
+        '05-01', '05-25', '06-15', '06-20', '07-09', '08-17',
         '10-12', '11-20', '12-08', '12-25'
     ],
 
@@ -24,9 +24,11 @@ const Utils = {
         const d = new Date(year, month - 1, startDay);
         let count = this.isBusinessDay(d) ? 1 : 0;
         if (count >= n) return d;
-        while (count < n) {
+        let safety = 0;
+        while (count < n && safety < 60) {
             d.setDate(d.getDate() + 1);
             if (this.isBusinessDay(d)) count++;
+            safety++;
         }
         return d;
     },

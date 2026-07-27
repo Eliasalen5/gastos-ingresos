@@ -8,7 +8,9 @@ const Auth = {
         document.getElementById('logout-btn').addEventListener('click', () => this.logout());
     },
 
-    login(userId) {
+    async login(userId) {
+        document.querySelectorAll('.user-btn').forEach(b => b.style.pointerEvents = 'none');
+
         this.currentUser = userId;
         const name = userId === 'nadia' ? 'Nadia' : 'Elias';
         const color = userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
@@ -21,7 +23,8 @@ const Auth = {
         document.getElementById('topbar-avatar').textContent = name[0];
         document.getElementById('topbar-avatar').style.background = color;
 
-        App.onLogin();
+        await App.onLogin();
+        document.querySelectorAll('.user-btn').forEach(b => b.style.pointerEvents = '');
     },
 
     logout() {

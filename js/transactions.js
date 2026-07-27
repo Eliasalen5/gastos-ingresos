@@ -33,9 +33,10 @@ const Transactions = {
         document.getElementById('tx-amount')?.addEventListener('input', () => this.updatePreview());
 
         document.getElementById('tx-receipt')?.addEventListener('change', (e) => {
+            const p = document.getElementById('receipt-preview');
+            if (p.src && p.src.startsWith('blob:')) URL.revokeObjectURL(p.src);
             const f = e.target.files[0];
             if (f) {
-                const p = document.getElementById('receipt-preview');
                 p.src = URL.createObjectURL(f);
                 p.classList.remove('hidden');
             }
@@ -63,9 +64,12 @@ const Transactions = {
 
     async load() {
         try {
-            const snap = await db.collection('transactions').orderBy('date', 'desc').limit(500).get();
+            const snap = await db.collection('transactions').orderBy('date', 'desc').limit(1000).get();
             this.list = [];
             snap.forEach(doc => this.list.push({ id: doc.id, ...doc.data() }));
+            if (snap.size >= 1000) {
+                App.toast('Mostrando las 1000 transacciones más recientes', 'info');
+            }
         } catch (e) {
             console.error('Error loading transactions:', e);
             this.list = [];

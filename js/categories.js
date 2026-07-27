@@ -93,6 +93,7 @@ const Categories = {
             App.toast('Categoría guardada', 'success');
             this.closeModal();
             await this.load();
+            this.updateFilterSelect();
         } catch (e) {
             App.toast('Error al guardar', 'error');
         }
@@ -101,9 +102,15 @@ const Categories = {
     async delete(id) {
         if (!confirm('¿Eliminar categoría?')) return;
         try {
+            const snap = await db.collection('transactions').where('categoryId', '==', id).limit(1).get();
+            if (!snap.empty) {
+                App.toast('No se puede eliminar: hay transacciones usando esta categoría', 'error');
+                return;
+            }
             await db.collection('categories').doc(id).delete();
             App.toast('Categoría eliminada', 'success');
             await this.load();
+            this.updateFilterSelect();
         } catch (e) {
             App.toast('Error al eliminar', 'error');
         }
@@ -133,6 +140,14 @@ const Categories = {
 
     getById(id) {
         return this.list.find(c => c.id === id);
+    },
+
+    updateFilterSelect() {
+        const sel = document.getElementById('filter-category');
+        if (!sel) return;
+        const val = sel.value;
+        sel.innerHTML = '<option value="all">Todas</option>' + this.renderSelects();
+        sel.value = val;
     },
 
     renderSelects(filterType) {

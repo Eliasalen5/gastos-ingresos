@@ -491,6 +491,10 @@ body {
 }
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:hover { background: #5a52e0; }
+.btn:focus-visible, .icon-btn:focus-visible, .nav-item:focus-visible, .bottom-nav-item:focus-visible, .user-btn:focus-visible, .dash-tab:focus-visible, .pay-btn:focus-visible, .type-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
 .btn-danger { background: var(--error); color: #fff; }
 .btn-danger:hover { opacity: 0.85; }
 .btn-ghost { background: none; border: 1px solid var(--border); color: var(--text); }
@@ -568,6 +572,7 @@ body {
     transition: border-color 0.15s;
 }
 .form-control:focus { outline: none; border-color: var(--primary); }
+.form-control:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 select.form-control { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238888AA' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
 input[type="color"] { width: 40px; height: 36px; border: none; cursor: pointer; background: none; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

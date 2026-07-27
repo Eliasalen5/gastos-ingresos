@@ -15,6 +15,7 @@ const App = {
 
     async onLogin() {
         await Categories.init();
+        Categories.updateFilterSelect();
         await Transactions.init();
         Dashboard.init();
         Notifications.init();
@@ -39,6 +40,7 @@ const App = {
 
     navigate(page) {
         this.currentPage = page;
+        document.getElementById('notif-dropdown')?.classList.add('hidden');
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.getElementById(`page-${page}`)?.classList.add('active');
         document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.page === page));
@@ -85,8 +87,26 @@ const App = {
                     <div class="tx-right">
                         <div class="tx-value income">+${Utils.formatMoney(tx.amount)}</div>
                     </div>
+                    <div class="tx-actions">
+                        <button class="icon-btn" data-edit="${tx.id}"><i class="fas fa-pen"></i></button>
+                        <button class="icon-btn danger" data-del="${tx.id}"><i class="fas fa-trash"></i></button>
+                    </div>
                 </div>`;
         }).join('');
+
+        el.querySelectorAll('[data-edit]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const tx = Transactions.list.find(t => t.id === btn.dataset.edit);
+                if (tx) Transactions.editTx(tx);
+            });
+        });
+        el.querySelectorAll('[data-del]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                Transactions.deleteTx(btn.dataset.del);
+            });
+        });
     },
 
     renderPagos() {

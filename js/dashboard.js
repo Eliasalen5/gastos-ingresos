@@ -70,7 +70,7 @@ const Dashboard = {
     renderRecent(userId) {
         const el = document.getElementById('recent-transactions');
         if (!el) return;
-        const recent = Transactions.list.filter(tx => tx.userId === userId).slice(0, 5);
+        const recent = Transactions.getCurrentMonthTxs().filter(tx => tx.userId === userId).slice(0, 5);
         if (recent.length === 0) {
             el.innerHTML = '<p class="muted">Sin transacciones</p>';
             return;
