@@ -169,9 +169,10 @@ const Notifications = {
             const timeStr = date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
             const dateStr = date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
             const unread = !n.read ? ' unread' : '';
+            const page = n.type === 'transaction' ? 'gastos' : 'home';
 
             return `
-                <div class="notif-item${unread}">
+                <div class="notif-item${unread}" data-page="${page}">
                     <div class="notif-icon" style="background:${color}"><i class="fas ${icon}"></i></div>
                     <div class="notif-content">
                         <div class="notif-title">${n.title}</div>
@@ -180,6 +181,13 @@ const Notifications = {
                     </div>
                 </div>`;
         }).join('');
+
+        dropdown.querySelectorAll('.notif-item').forEach(item => {
+            item.addEventListener('click', () => {
+                dropdown.classList.add('hidden');
+                App.navigate(item.dataset.page);
+            });
+        });
     },
 
     renderWidget() {

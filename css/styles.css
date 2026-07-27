@@ -270,6 +270,7 @@ body {
     padding: 12px 14px;
     border-bottom: 1px solid var(--border);
     transition: background 0.15s;
+    cursor: pointer;
 }
 .notif-item:last-child { border-bottom: none; }
 .notif-item:hover { background: var(--surface2); }
