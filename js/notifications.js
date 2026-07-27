@@ -62,6 +62,8 @@ const Notifications = {
     async markAllRead() {
         const unread = this.list.filter(n => !n.read);
         if (unread.length === 0) return;
+        this.list.forEach(n => n.read = true);
+        this.renderBadge();
         try {
             const batch = db.batch();
             unread.forEach(n => {
