@@ -130,7 +130,7 @@ const App = {
         const summaryEl = document.getElementById('pagos-summary');
         if (!el) return;
 
-        const pending = Transactions.getUnpaidExpenses();
+        const pending = Transactions.getUnpaidExpenses().filter(tx => tx.installments > 1);
         const total = pending.reduce((s, tx) => s + tx.amount, 0);
 
         summaryEl.innerHTML = pending.length === 0
@@ -142,58 +142,56 @@ const App = {
             return;
         }
 
-        const groups = {};
+        const monthGroups = {};
         pending.forEach(tx => {
-            const key = `${tx.description || ''}_${tx.userId}_${tx.installments || 1}_${tx.date}`;
-            if (!groups[key]) groups[key] = { txs: [], description: tx.description, userId: tx.userId, categoryId: tx.categoryId, date: tx.date };
-            groups[key].txs.push(tx);
+            const monthKey = tx.date ? tx.date.substring(0, 7) : 'unknown';
+            const key = `${tx.userId}_${monthKey}`;
+            if (!monthGroups[key]) monthGroups[key] = { userId: tx.userId, month: monthKey, txs: [] };
+            monthGroups[key].txs.push(tx);
         });
 
-        el.innerHTML = Object.values(groups).map(group => {
-            const cat = Categories.getById(group.categoryId);
-            const catColor = cat ? cat.color : '#95A5A6';
-            const catIcon = cat ? cat.icon : 'fa-tag';
+        const sortedGroups = Object.values(monthGroups).sort((a, b) => a.month.localeCompare(b.month));
+
+        el.innerHTML = sortedGroups.map(group => {
             const userName = group.userId === 'nadia' ? 'Nadia' : 'Elias';
             const userColor = group.userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
-            const unpaidTotal = group.txs.reduce((s, tx) => s + tx.amount, 0);
+            const monthDate = new Date(group.month + '-15T12:00:00');
+            const monthLabel = monthDate.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+            const groupTotal = group.txs.reduce((s, tx) => s + tx.amount, 0);
 
-            const installments = group.txs[0]?.installments || 1;
-            const nextUnpaid = group.txs.filter(tx => !tx.paid).sort((a, b) => (a.installmentNum || 0) - (b.installmentNum || 0))[0];
-            const nextNum = nextUnpaid ? nextUnpaid.installmentNum : installments;
-
-            let metaExtra = '';
-            if (installments > 1) {
-                metaExtra = ` · Cuota ${nextNum}/${installments}`;
-            }
-
-            let items = '';
-            if (installments > 1) {
-                items = `<div class="inst-list">` + group.txs.filter(tx => !tx.paid).map(tx => {
-                    const num = tx.installmentNum || 1;
-                    return `<div class="inst-row">
-                        <div class="inst-info">
-                            <div class="inst-month">Cuota ${num}/${tx.installments}</div>
-                        </div>
-                        <div class="inst-amount fw700">${Utils.formatMoney(tx.amount)}</div>
-                        <button class="btn btn-sm btn-primary pago-btn" data-pay="${tx.id}"><i class="fas fa-check"></i></button>
-                    </div>`;
-                }).join('') + `</div>`;
-            }
+            const items = group.txs.map(tx => {
+                const cat = Categories.getById(tx.categoryId);
+                const catColor = cat ? cat.color : '#95A5A6';
+                const catIcon = cat ? cat.icon : 'fa-tag';
+                const num = tx.installmentNum || 1;
+                const instOf = tx.installments || 1;
+                return `<div class="inst-row">
+                    <div class="tx-icon" style="background:${catColor}"><i class="fas ${catIcon}"></i></div>
+                    <div class="inst-info">
+                        <div class="tx-desc">${Utils.esc(tx.description || (cat ? cat.name : ''))}</div>
+                        <div class="inst-month">Cuota ${num}/${instOf} · ${Utils.formatDate(tx.date)}</div>
+                    </div>
+                    <div class="inst-amount fw700 expense">-${Utils.formatMoney(tx.amount)}</div>
+                    <button class="btn btn-sm btn-primary pago-btn" data-pay="${tx.id}"><i class="fas fa-check"></i></button>
+                </div>`;
+            }).join('');
 
             return `
                 <div class="pago-item-group">
                     <div class="pago-header">
-                        <div class="tx-icon" style="background:${catColor}"><i class="fas ${catIcon}"></i></div>
-                        <div class="tx-info">
-                            <div class="tx-desc">${Utils.esc(group.description || (cat ? cat.name : ''))}</div>
-                            <div class="tx-meta"><span class="user-dot" style="background:${userColor}"></span> ${userName} · ${Utils.formatDate(group.date)}${metaExtra}</div>
+                        <div class="pago-month-label">
+                            <span class="user-dot" style="background:${userColor}"></span>
+                            <span class="fw700">${userName}</span>
+                            <span class="pago-month-name">${Utils.esc(monthLabel)}</span>
                         </div>
-                        <div class="tx-right">
-                            <div class="tx-value expense">-${Utils.formatMoney(unpaidTotal)}</div>
-                        </div>
+                        <div class="pago-month-total">-${Utils.formatMoney(groupTotal)}</div>
                     </div>
-                    ${items}
-                    ${installments > 1 ? `<div class="pago-footer"><button class="btn btn-sm btn-primary" data-pay-all="${group.description}" data-user="${group.userId}"><i class="fas fa-check-double"></i> Pagar todas</button></div>` : `<div class="pago-footer"><button class="btn btn-sm btn-primary pago-btn" data-pay="${group.txs[0].id}"><i class="fas fa-check"></i> Pagar</button></div>`}
+                    <div class="inst-list">${items}</div>
+                    <div class="pago-footer">
+                        <button class="btn btn-sm btn-primary" data-pay-all="" data-user="${group.userId}" data-month="${group.month}">
+                            <i class="fas fa-check-double"></i> Pagar todo ${Utils.esc(monthLabel)}
+                        </button>
+                    </div>
                 </div>`;
         }).join('');
 
@@ -209,7 +207,7 @@ const App = {
         el.querySelectorAll('[data-pay-all]').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                await Transactions.markAllGroupPaid(btn.dataset.payAll, btn.dataset.user);
+                await Transactions.markAllGroupPaid(btn.dataset.user, btn.dataset.month);
             });
         });
     },

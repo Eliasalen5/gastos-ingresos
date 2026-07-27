@@ -174,16 +174,19 @@ const Transactions = {
         }
     },
 
-    async markAllGroupPaid(description, userId) {
+    async markAllGroupPaid(userId, month) {
         const pending = this.list.filter(tx =>
-            tx.description === description && tx.userId === userId && tx.paid === false && tx.installments > 1
+            tx.userId === userId && tx.date && tx.date.startsWith(month) && tx.paid === false && tx.installments > 1
         );
         if (pending.length === 0) return;
-        if (!confirm(`¿Pagar las ${pending.length} cuotas pendientes?`)) return;
+        const monthName = new Date(month + '-15T12:00:00').toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+        if (!confirm(`¿Pagar las ${pending.length} cuota(s) de ${monthName}?`)) return;
         try {
-            for (const tx of pending) {
-                await db.collection('transactions').doc(tx.id).update({ paid: true });
-            }
+            const batch = db.batch();
+            pending.forEach(tx => {
+                batch.update(db.collection('transactions').doc(tx.id), { paid: true });
+            });
+            await batch.commit();
             App.toast(`${pending.length} cuota(s) pagada(s)`, 'success');
             await this.load();
             App.refreshPage(App.currentPage);

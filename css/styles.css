@@ -860,8 +860,24 @@ canvas { max-height: 250px; }
 .pago-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
     padding: 14px 16px;
+}
+.pago-month-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.pago-month-name {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-transform: capitalize;
+}
+.pago-month-total {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--warning);
 }
 .pago-footer {
     padding: 10px 16px;
