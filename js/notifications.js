@@ -130,6 +130,7 @@ const Notifications = {
     },
 
     renderBadge() {
+        this.load();
         const badge = document.getElementById('notif-badge');
         const count = this.getUnreadCount();
         if (badge) {
@@ -168,6 +169,8 @@ const Notifications = {
     renderDropdown() {
         const dropdown = document.getElementById('notif-dropdown');
         if (!dropdown) return;
+
+        this.load();
 
         if (this.list.length === 0) {
             dropdown.innerHTML = '<div class="notif-empty"><i class="fas fa-bell-slash"></i><p>Sin notificaciones</p></div>';
