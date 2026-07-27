@@ -1,10 +1,14 @@
 const App = {
     currentPage: 'home',
+    _bound: false,
 
     async init() {
-        this.bindNav();
-        this.bindMenu();
-        Auth.init();
+        if (!this._bound) {
+            this.bindNav();
+            this.bindMenu();
+            Auth.init();
+            this._bound = true;
+        }
         document.getElementById('tx-date').value = Utils.todayStr();
         document.getElementById('filter-date').value = Utils.currentYearMonth();
     },
@@ -75,7 +79,7 @@ const App = {
                 <div class="tx-item">
                     <div class="tx-icon" style="background:${cat ? cat.color : '#95A5A6'}"><i class="fas ${cat ? cat.icon : 'fa-tag'}"></i></div>
                     <div class="tx-info">
-                        <div class="tx-desc">${tx.description || (cat ? cat.name : '')}</div>
+                        <div class="tx-desc">${Utils.esc(tx.description || (cat ? cat.name : ''))}</div>
                         <div class="tx-meta"><span class="user-dot" style="background:${userColor}"></span> ${userName} · ${Utils.formatDate(tx.date)}</div>
                     </div>
                     <div class="tx-right">
@@ -104,7 +108,7 @@ const App = {
 
         const groups = {};
         pending.forEach(tx => {
-            const key = `${tx.description || ''}_${tx.userId}_${tx.categoryId}`;
+            const key = `${tx.description || ''}_${tx.userId}_${tx.installments || 1}_${tx.date}`;
             if (!groups[key]) groups[key] = { txs: [], description: tx.description, userId: tx.userId, categoryId: tx.categoryId, date: tx.date };
             groups[key].txs.push(tx);
         });
@@ -115,15 +119,15 @@ const App = {
             const catIcon = cat ? cat.icon : 'fa-tag';
             const userName = group.userId === 'nadia' ? 'Nadia' : 'Elias';
             const userColor = group.userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
-            const totalGroup = group.txs.reduce((s, tx) => s + tx.amount, 0);
+            const unpaidTotal = group.txs.reduce((s, tx) => s + tx.amount, 0);
 
             const installments = group.txs[0]?.installments || 1;
-            const paidCount = group.txs.filter(tx => tx.paid).length;
-            const unpaidCount = group.txs.length;
+            const nextUnpaid = group.txs.filter(tx => !tx.paid).sort((a, b) => (a.installmentNum || 0) - (b.installmentNum || 0))[0];
+            const nextNum = nextUnpaid ? nextUnpaid.installmentNum : installments;
 
             let metaExtra = '';
             if (installments > 1) {
-                metaExtra = ` · Cuota ${paidCount + 1}/${installments}`;
+                metaExtra = ` · Cuota ${nextNum}/${installments}`;
             }
 
             let items = '';
@@ -145,11 +149,11 @@ const App = {
                     <div class="pago-header">
                         <div class="tx-icon" style="background:${catColor}"><i class="fas ${catIcon}"></i></div>
                         <div class="tx-info">
-                            <div class="tx-desc">${group.description || (cat ? cat.name : '')}</div>
+                            <div class="tx-desc">${Utils.esc(group.description || (cat ? cat.name : ''))}</div>
                             <div class="tx-meta"><span class="user-dot" style="background:${userColor}"></span> ${userName} · ${Utils.formatDate(group.date)}${metaExtra}</div>
                         </div>
                         <div class="tx-right">
-                            <div class="tx-value expense">-${Utils.formatMoney(totalGroup)}</div>
+                            <div class="tx-value expense">-${Utils.formatMoney(unpaidTotal)}</div>
                         </div>
                     </div>
                     ${items}
@@ -179,7 +183,7 @@ const App = {
         const t = document.createElement('div');
         t.className = `toast ${type}`;
         const icons = { success: 'check-circle', error: 'exclamation-circle', info: 'info-circle' };
-        t.innerHTML = `<i class="fas fa-${icons[type]}"></i><span>${msg}</span>`;
+        t.innerHTML = `<i class="fas fa-${icons[type]}"></i><span>${Utils.esc(msg)}</span>`;
         c.appendChild(t);
         setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(100%)'; setTimeout(() => t.remove(), 300); }, 3000);
     }

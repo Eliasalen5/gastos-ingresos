@@ -5,6 +5,8 @@ const Utils = {
         '10-12', '11-20', '12-08', '12-25'
     ],
 
+    esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; },
+
     isBusinessDay(date) {
         const day = date.getDay();
         if (day === 0 || day === 6) return false;

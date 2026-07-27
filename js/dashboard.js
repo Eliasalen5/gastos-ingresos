@@ -1,7 +1,10 @@
 const Dashboard = {
     charts: {},
+    _bound: false,
 
     init() {
+        if (this._bound) return;
+        this._bound = true;
         document.querySelectorAll('.dash-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 document.querySelectorAll('.dash-tab').forEach(t => t.classList.remove('active'));
@@ -80,7 +83,7 @@ const Dashboard = {
                 <div class="mini-row">
                     <div class="mini-icon" style="background:${color}"><i class="fas ${icon}"></i></div>
                     <div class="mini-info">
-                        <span class="fw500">${tx.description || (cat ? cat.name : '')}</span>
+                        <span class="fw500">${Utils.esc(tx.description || (cat ? cat.name : ''))}</span>
                         <span class="muted"> ${Utils.formatDate(tx.date)}</span>
                     </div>
                     <span class="fw700 ${tx.type}">${tx.type === 'income' ? '+' : '-'}${Utils.formatMoney(tx.amount)}</span>
@@ -91,7 +94,7 @@ const Dashboard = {
     renderPendingWidget() {
         const el = document.getElementById('pending-count');
         if (!el) return;
-        const pending = Transactions.getUnpaidExpenses();
+        const pending = Transactions.getUnpaidExpenses().filter(tx => tx.userId === Auth.currentUser);
         if (pending.length === 0) {
             el.innerHTML = '<p class="muted">Sin pagos pendientes</p>';
             return;

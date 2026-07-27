@@ -1,8 +1,9 @@
 const Transactions = {
     list: [],
+    _bound: false,
 
     async init() {
-        this.bindEvents();
+        if (!this._bound) { this.bindEvents(); this._bound = true; }
         await this.load();
     },
 
@@ -88,30 +89,38 @@ const Transactions = {
         }
 
         try {
+            const receiptFile = document.getElementById('tx-receipt').files[0];
+            let receiptUrl = null;
+            if (receiptFile) {
+                receiptUrl = await StorageManager.upload(receiptFile, id || 'new');
+            }
+
             if (id) {
                 const paid = paymentMethod === 'debito';
                 const data = { type, amount, categoryId, description, date, paymentMethod, paid, userId: Auth.currentUser, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+                if (receiptUrl) data.receiptUrl = receiptUrl;
                 await db.collection('transactions').doc(id).update(data);
             } else if (installments > 1 && paymentMethod === 'credito') {
-                const installmentAmount = amount / installments;
+                const installmentAmount = Math.round((amount / installments) * 100) / 100;
+                const batch = db.batch();
                 for (let i = 1; i <= installments; i++) {
-                    await db.collection('transactions').add({
+                    const ref = db.collection('transactions').doc();
+                    const data = {
                         type, amount: installmentAmount, categoryId, description, date,
                         paymentMethod, paid: false,
                         installments, installmentNum: i,
                         userId: Auth.currentUser,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
+                    };
+                    if (i === 1 && receiptUrl) data.receiptUrl = receiptUrl;
+                    batch.set(ref, data);
                 }
+                await batch.commit();
             } else {
                 const paid = paymentMethod === 'debito';
                 const data = { type, amount, categoryId, description, date, paymentMethod, paid, userId: Auth.currentUser, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
-                const ref = await db.collection('transactions').add(data);
-                const receiptFile = document.getElementById('tx-receipt').files[0];
-                if (receiptFile) {
-                    const receiptUrl = await StorageManager.upload(receiptFile, ref.id);
-                    await db.collection('transactions').doc(ref.id).update({ receiptUrl });
-                }
+                if (receiptUrl) data.receiptUrl = receiptUrl;
+                await db.collection('transactions').add(data);
             }
 
             App.toast('Guardado', 'success');
@@ -132,6 +141,11 @@ const Transactions = {
     async deleteTx(id) {
         if (!confirm('¿Eliminar transacción?')) return;
         try {
+            const doc = await db.collection('transactions').doc(id).get();
+            const data = doc.data();
+            if (data && data.receiptUrl) {
+                await StorageManager.delete(data.receiptUrl);
+            }
             await db.collection('transactions').doc(id).delete();
             App.toast('Eliminada', 'success');
             await this.load();
@@ -141,6 +155,11 @@ const Transactions = {
     },
 
     async markPaid(id) {
+        const tx = this.list.find(t => t.id === id);
+        if (tx && tx.userId !== Auth.currentUser) {
+            App.toast('No podés pagar gastos de otro usuario', 'error');
+            return;
+        }
         try {
             await db.collection('transactions').doc(id).update({ paid: true });
             App.toast('Marcado como pagado', 'success');
@@ -177,6 +196,7 @@ const Transactions = {
         document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
         document.querySelector(`.type-btn[data-type="${tx.type}"]`).classList.add('active');
         this.updateCategorySelect();
+        document.getElementById('tx-category').value = tx.categoryId;
 
         document.getElementById('tx-amount').value = tx.amount;
         document.getElementById('tx-description').value = tx.description || '';
@@ -192,10 +212,6 @@ const Transactions = {
             document.getElementById('tx-amount').value = tx.amount * tx.installments;
             this.updatePreview();
         }
-
-        setTimeout(() => {
-            document.getElementById('tx-category').value = tx.categoryId;
-        }, 100);
 
         if (tx.receiptUrl) {
             const p = document.getElementById('receipt-preview');
@@ -267,10 +283,10 @@ const Transactions = {
                 <div class="tx-item">
                     <div class="tx-icon" style="background:${catColor}"><i class="fas ${catIcon}"></i></div>
                     <div class="tx-info">
-                        <div class="tx-desc">${tx.description || (cat ? cat.name : '')} ${paidBadge}${instBadge}</div>
+                        <div class="tx-desc">${Utils.esc(tx.description || (cat ? cat.name : ''))} ${paidBadge}${instBadge}</div>
                         <div class="tx-meta">
                             <span class="user-dot" style="background:${userColor}"></span> ${userName}
-                            · ${cat ? cat.name : ''}
+                            · ${Utils.esc(cat ? cat.name : '')}
                         </div>
                     </div>
                     <div class="tx-right">

@@ -1,6 +1,7 @@
 const Categories = {
     list: [],
     selectedIcon: 'fa-tag',
+    _bound: false,
 
     ICONS: [
         'fa-utensils', 'fa-shopping-cart', 'fa-car', 'fa-gamepad', 'fa-heartbeat',
@@ -31,11 +32,14 @@ const Categories = {
     ],
 
     async init() {
-        document.getElementById('add-category-btn')?.addEventListener('click', () => this.openModal());
-        document.getElementById('category-form').addEventListener('submit', (e) => { e.preventDefault(); this.save(); });
-        document.querySelectorAll('#category-modal .modal-close').forEach(b => b.addEventListener('click', () => this.closeModal()));
-        document.querySelector('#category-modal .modal-overlay')?.addEventListener('click', () => this.closeModal());
-        this.renderIconPicker();
+        if (!this._bound) {
+            document.getElementById('add-category-btn')?.addEventListener('click', () => this.openModal());
+            document.getElementById('category-form').addEventListener('submit', (e) => { e.preventDefault(); this.save(); });
+            document.querySelectorAll('#category-modal .modal-close').forEach(b => b.addEventListener('click', () => this.closeModal()));
+            document.querySelector('#category-modal .modal-overlay')?.addEventListener('click', () => this.closeModal());
+            this.renderIconPicker();
+            this._bound = true;
+        }
         await this.load();
     },
 
@@ -135,7 +139,7 @@ const Categories = {
         const filtered = filterType
             ? this.list.filter(c => c.type === filterType || c.type === 'both')
             : this.list;
-        return filtered.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        return filtered.map(c => `<option value="${c.id}">${Utils.esc(c.name)}</option>`).join('');
     },
 
     renderGrid() {
@@ -152,7 +156,7 @@ const Categories = {
                     <button class="icon-btn danger" data-del="${c.id}"><i class="fas fa-trash"></i></button>
                 </div>
                 <div class="cat-icon" style="color:${c.color}"><i class="fas ${c.icon}"></i></div>
-                <div class="cat-name">${c.name}</div>
+                <div class="cat-name">${Utils.esc(c.name)}</div>
                 <span class="cat-badge">${c.type === 'expense' ? 'Gasto' : c.type === 'income' ? 'Ingreso' : 'Ambos'}</span>
             </div>
         `).join('');
