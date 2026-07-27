@@ -1,7 +1,7 @@
 const Notifications = {
     list: [],
     PAYDAY_KEY: 'app_payday_notified',
-    MAX_ITEMS: 5,
+    MAX_ITEMS: 10,
 
     getStorageKey(user) {
         return `app_notifications_${user || Auth.currentUser}`;
