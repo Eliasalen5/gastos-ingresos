@@ -41,7 +41,7 @@ body {
 .login-screen.active { display: flex; }
 
 .login-box {
-    background: url('../img/us.jpg') center 100%/cover no-repeat;
+    background: url('../img/us.jpg') center/cover no-repeat;
     border-radius: var(--radius);
     padding: 48px 32px 40px;
     text-align: center;
