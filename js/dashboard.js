@@ -15,6 +15,11 @@ const Dashboard = {
                 v === 'grupal' ? this.renderGrupal() : this.renderIndividual();
             });
         });
+        const monthInput = document.getElementById('grupal-month');
+        if (monthInput) {
+            monthInput.value = Utils.currentYearMonth();
+            monthInput.addEventListener('change', () => this.renderGrupal());
+        }
     },
 
     refresh() {
@@ -108,7 +113,9 @@ const Dashboard = {
     },
 
     renderGrupal() {
-        const txs = Transactions.getCurrentMonthTxs();
+        const monthInput = document.getElementById('grupal-month');
+        const prefix = monthInput ? monthInput.value : Utils.currentYearMonth();
+        const txs = Transactions.list.filter(tx => tx.date && tx.date.startsWith(prefix));
         const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expense = txs.filter(t => t.type === 'expense' && t.paid !== false).reduce((s, t) => s + t.amount, 0);
 
@@ -117,7 +124,7 @@ const Dashboard = {
         document.getElementById('grupal-expense').textContent = Utils.formatMoney(expense);
 
         this.renderComparison(txs);
-        this.renderUserBars(txs);
+        this.renderUserBars(txs, prefix);
     },
 
     renderComparison(txs) {
@@ -142,7 +149,7 @@ const Dashboard = {
         });
     },
 
-    renderUserBars(txs) {
+    renderUserBars(txs, prefix) {
         const el = document.getElementById('grupal-user-bars');
         if (!el) return;
         const nIncome = txs.filter(t => t.type === 'income' && t.userId === 'nadia').reduce((s, t) => s + t.amount, 0);
@@ -154,9 +161,12 @@ const Dashboard = {
         const ePct = (eIncome / total * 100).toFixed(1);
         const nExpPct = nIncome > 0 ? (nExpense / nIncome * 100).toFixed(1) : '0.0';
         const eExpPct = eIncome > 0 ? (eExpense / eIncome * 100).toFixed(1) : '0.0';
+        const monthLabel = prefix
+            ? new Date(prefix + '-15T12:00:00').toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+            : '';
 
         el.innerHTML = `
-            <div class="card-title">Ingresos del mes por usuario</div>
+            <div class="card-title">Ingresos${monthLabel ? ' de ' + monthLabel : ''} por usuario</div>
             <div class="user-bar-group">
                 <div class="user-bar-header">
                     <span class="fw600 nadia-color">Nadia</span>
