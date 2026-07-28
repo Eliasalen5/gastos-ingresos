@@ -39,10 +39,16 @@ const App = {
     bindMenu() {
         const toggle = document.getElementById('menu-toggle');
         const sidebar = document.getElementById('sidebar');
-        toggle?.addEventListener('click', () => sidebar.classList.toggle('open'));
+        const overlay = document.getElementById('sidebar-overlay');
+        const closeSidebar = () => { sidebar.classList.remove('open'); overlay?.classList.remove('open'); };
+        toggle?.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+            overlay?.classList.toggle('open');
+        });
+        overlay?.addEventListener('click', closeSidebar);
         document.addEventListener('click', (e) => {
             if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== toggle && !toggle.contains(e.target)) {
-                sidebar.classList.remove('open');
+                closeSidebar();
             }
         });
     },
@@ -65,6 +71,7 @@ const App = {
         const titles = { home: 'Home', gastos: 'Gastos', ingresos: 'Ingresos', 'nuevo-gasto': 'Nuevo Gasto', pagos: 'Pagos', categorias: 'Categorías' };
         document.getElementById('page-title').textContent = titles[page] || page;
         document.getElementById('sidebar')?.classList.remove('open');
+        document.getElementById('sidebar-overlay')?.classList.remove('open');
         this.refreshPage(page);
     },
 
