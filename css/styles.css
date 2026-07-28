@@ -209,7 +209,7 @@ body {
     gap: 12px;
     position: sticky;
     top: 0;
-    z-index: 50;
+    z-index: 100;
 }
 .topbar-avatar {
     width: 32px;
@@ -921,6 +921,14 @@ canvas { max-height: 250px; }
 
     /* Modals tighter padding */
     .modal { padding: 12px; }
+
+    /* Notification bigger tap target */
+    .notif-btn {
+        padding: 8px;
+        font-size: 1.2rem;
+        touch-action: manipulation;
+    }
+    .notif-badge { top: 2px; right: 2px; }
 }
 
 @media (max-width: 400px) {

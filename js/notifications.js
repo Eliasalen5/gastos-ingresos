@@ -29,6 +29,8 @@ const Notifications = {
             .onSnapshot(snap => {
                 this.list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 this.renderBadge();
+            }, err => {
+                console.error('Notif snapshot error:', err);
             });
     },
 
