@@ -64,7 +64,7 @@ const Dashboard = {
     },
 
     renderCategoryChart(userId, prefix) {
-        const txs = Transactions.list.filter(tx => tx.type === 'expense' && t.paid !== false && t.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(prefix));
+        const txs = Transactions.list.filter(tx => tx.type === 'expense' && tx.paid !== false && tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(prefix));
         const map = {};
         txs.forEach(tx => {
             const cat = Categories.getById(tx.categoryId);
