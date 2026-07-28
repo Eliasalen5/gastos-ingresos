@@ -301,6 +301,9 @@ const Transactions = {
             const userColor = tx.userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
             const paidBadge = tx.paid === false ? '<span class="pending-badge">Pendiente</span>' : '';
             const instBadge = tx.installments > 1 ? ` <span class="inst-badge">Cuota ${tx.installmentNum}/${tx.installments}</span>` : '';
+            const receiptBtn = tx.receiptUrl
+                ? `<button class="icon-btn receipt-btn" data-receipt="${Utils.esc(tx.receiptUrl)}" title="Ver comprobante"><i class="fas fa-image"></i></button>`
+                : '';
 
             return `
                 <div class="tx-item">
@@ -317,11 +320,19 @@ const Transactions = {
                         <div class="tx-date">${Utils.formatDate(tx.date)}</div>
                     </div>
                     <div class="tx-actions">
+                        ${receiptBtn}
                         <button class="icon-btn" data-edit="${tx.id}"><i class="fas fa-pen"></i></button>
                         <button class="icon-btn danger" data-del="${tx.id}"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>`;
         }).join('');
+
+        container.querySelectorAll('[data-receipt]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.open(btn.dataset.receipt, '_blank');
+            });
+        });
 
         container.querySelectorAll('[data-edit]').forEach(btn => {
             btn.addEventListener('click', (e) => {

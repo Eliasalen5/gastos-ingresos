@@ -100,6 +100,9 @@ const App = {
             const cat = Categories.getById(tx.categoryId);
             const userName = tx.userId === 'nadia' ? 'Nadia' : 'Elias';
             const userColor = tx.userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
+            const receiptBtn = tx.receiptUrl
+                ? `<button class="icon-btn receipt-btn" data-receipt="${Utils.esc(tx.receiptUrl)}" title="Ver comprobante"><i class="fas fa-image"></i></button>`
+                : '';
             return `
                 <div class="tx-item">
                     <div class="tx-icon" style="background:${cat ? cat.color : '#95A5A6'}"><i class="fas ${cat ? cat.icon : 'fa-tag'}"></i></div>
@@ -111,11 +114,19 @@ const App = {
                         <div class="tx-value income">+${Utils.formatMoney(tx.amount)}</div>
                     </div>
                     <div class="tx-actions">
+                        ${receiptBtn}
                         <button class="icon-btn" data-edit="${tx.id}"><i class="fas fa-pen"></i></button>
                         <button class="icon-btn danger" data-del="${tx.id}"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>`;
         }).join('');
+
+        el.querySelectorAll('[data-receipt]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.open(btn.dataset.receipt, '_blank');
+            });
+        });
 
         el.querySelectorAll('[data-edit]').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -172,6 +183,9 @@ const App = {
                 const catIcon = cat ? cat.icon : 'fa-tag';
                 const num = tx.installmentNum || 1;
                 const instOf = tx.installments || 1;
+                const receiptBtn = tx.receiptUrl
+                    ? `<button class="icon-btn receipt-btn" data-receipt="${Utils.esc(tx.receiptUrl)}" title="Ver comprobante"><i class="fas fa-image"></i></button>`
+                    : '';
                 return `<div class="inst-row">
                     <div class="tx-icon" style="background:${catColor}"><i class="fas ${catIcon}"></i></div>
                     <div class="inst-info">
@@ -179,6 +193,7 @@ const App = {
                         <div class="inst-month">Cuota ${num}/${instOf} · ${Utils.formatDate(tx.date)}</div>
                     </div>
                     <div class="inst-amount fw700 expense">-${Utils.formatMoney(tx.amount)}</div>
+                    ${receiptBtn}
                     <button class="btn btn-sm btn-primary pago-btn" data-pay="${tx.id}"><i class="fas fa-check"></i></button>
                 </div>`;
             }).join('');
@@ -215,6 +230,13 @@ const App = {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 await Transactions.markAllGroupPaid(btn.dataset.user, btn.dataset.month);
+            });
+        });
+
+        el.querySelectorAll('[data-receipt]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.open(btn.dataset.receipt, '_blank');
             });
         });
     },

@@ -95,16 +95,26 @@ const Dashboard = {
             const cat = Categories.getById(tx.categoryId);
             const color = cat ? cat.color : '#95A5A6';
             const icon = cat ? cat.icon : 'fa-tag';
+            const receiptIcon = tx.receiptUrl
+                ? `<i class="fas fa-image receipt-mini" data-receipt="${Utils.esc(tx.receiptUrl)}" title="Ver comprobante"></i>`
+                : '';
             return `
                 <div class="mini-row">
                     <div class="mini-icon" style="background:${color}"><i class="fas ${icon}"></i></div>
                     <div class="mini-info">
-                        <span class="fw500">${Utils.esc(tx.description || (cat ? cat.name : ''))}</span>
+                        <span class="fw500">${Utils.esc(tx.description || (cat ? cat.name : ''))} ${receiptIcon}</span>
                         <span class="muted"> ${Utils.formatDate(tx.date)}</span>
                     </div>
                     <span class="fw700 ${tx.type}">${tx.type === 'income' ? '+' : '-'}${Utils.formatMoney(tx.amount)}</span>
                 </div>`;
         }).join('');
+
+        el.querySelectorAll('[data-receipt]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.open(btn.dataset.receipt, '_blank');
+            });
+        });
     },
 
     renderPendingWidget() {
