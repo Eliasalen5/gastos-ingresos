@@ -186,7 +186,7 @@ const Transactions = {
 
     async markAllGroupPaid(userId, month) {
         const pending = this.list.filter(tx =>
-            tx.userId === userId && tx.date && tx.date.startsWith(month) && tx.paid === false && tx.installments > 1
+            tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(month) && tx.paid === false && tx.installments > 1
         );
         if (pending.length === 0) return;
         const monthDate = new Date(month + '-15T12:00:00');
@@ -266,14 +266,14 @@ const Transactions = {
             if (type !== 'all' && tx.type !== type) return false;
             if (cat !== 'all' && tx.categoryId !== cat) return false;
             if (user !== 'all' && tx.userId !== user) return false;
-            if (date && !tx.date.startsWith(date)) return false;
+            if (date && typeof tx.date === 'string' && !tx.date.startsWith(date)) return false;
             return true;
         });
     },
 
     getMonthTxs(year, month) {
         const p = `${year}-${String(month).padStart(2, '0')}`;
-        return this.list.filter(tx => tx.date.startsWith(p));
+        return this.list.filter(tx => typeof tx.date === 'string' && tx.date.startsWith(p));
     },
 
     getCurrentMonthTxs() {

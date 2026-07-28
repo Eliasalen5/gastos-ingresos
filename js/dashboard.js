@@ -49,7 +49,7 @@ const Dashboard = {
     renderIndividual() {
         const userId = Auth.currentUser;
         const prefix = this._individualMonth();
-        const txs = Transactions.list.filter(tx => tx.userId === userId && tx.date && tx.date.startsWith(prefix));
+        const txs = Transactions.list.filter(tx => tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(prefix));
         const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expense = txs.filter(t => t.type === 'expense' && t.paid !== false).reduce((s, t) => s + t.amount, 0);
 
@@ -64,7 +64,7 @@ const Dashboard = {
     },
 
     renderCategoryChart(userId, prefix) {
-        const txs = Transactions.list.filter(tx => tx.type === 'expense' && t.paid !== false && t.userId === userId && tx.date && tx.date.startsWith(prefix));
+        const txs = Transactions.list.filter(tx => tx.type === 'expense' && t.paid !== false && t.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(prefix));
         const map = {};
         txs.forEach(tx => {
             const cat = Categories.getById(tx.categoryId);
@@ -119,7 +119,7 @@ const Dashboard = {
     renderRecent(userId, prefix) {
         const el = document.getElementById('recent-transactions');
         if (!el) return;
-        const recent = Transactions.list.filter(tx => tx.userId === userId && tx.date && tx.date.startsWith(prefix)).slice(0, 5);
+        const recent = Transactions.list.filter(tx => tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(prefix)).slice(0, 5);
         if (recent.length === 0) {
             el.innerHTML = '<p class="muted">Sin transacciones</p>';
             return;
@@ -169,7 +169,7 @@ const Dashboard = {
     renderGrupal() {
         const monthInput = document.getElementById('grupal-month');
         const prefix = monthInput ? monthInput.value : Utils.currentYearMonth();
-        const txs = Transactions.list.filter(tx => tx.date && tx.date.startsWith(prefix));
+        const txs = Transactions.list.filter(tx => typeof tx.date === 'string' && tx.date.startsWith(prefix));
         const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expense = txs.filter(t => t.type === 'expense' && t.paid !== false).reduce((s, t) => s + t.amount, 0);
 
