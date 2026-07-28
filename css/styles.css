@@ -655,7 +655,7 @@ input[type="color"] { width: 40px; height: 36px; border: none; cursor: pointer; 
 }
 .cat-card .cat-actions { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
 .cat-icon { font-size: 1.6rem; margin-bottom: 8px; }
-.cat-name { font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+.cat-name { font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; word-break: break-word; }
 .cat-badge {
     font-size: 0.68rem;
     background: var(--surface2);
