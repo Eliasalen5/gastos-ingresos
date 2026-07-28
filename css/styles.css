@@ -575,14 +575,15 @@ body {
 }
 input[type="date"].form-control,
 input[type="month"].form-control {
+    appearance: none;
+    -webkit-appearance: none;
     min-width: 0;
     width: 100%;
     max-width: 100%;
 }
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="month"]::-webkit-calendar-picker-indicator {
-    width: 14px;
-    height: 14px;
+    display: none;
 }
 .form-control:focus { outline: none; border-color: var(--primary); }
 .form-control:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
@@ -947,9 +948,8 @@ canvas { max-height: 250px; }
     .bottom-nav { display: none; }
     .sidebar-overlay { display: none !important; }
     .topbar-avatar { display: none; }
-    .filters-row { display: flex; flex-wrap: wrap; gap: 8px; }
-    .filters-row .form-control { width: 100%; min-width: 0; flex: 1; }
-    input[type="month"].form-control { appearance: none; }
+    .filters-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .filters-row .form-control { width: 100%; min-width: 0; }
 }
 
 /* ── Pagos Page ── */
