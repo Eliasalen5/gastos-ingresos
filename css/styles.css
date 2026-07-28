@@ -36,38 +36,39 @@ body {
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    background: linear-gradient(135deg, #0F0F14, #1A1A2E);
-}
-.login-screen.active { display: flex; }
-
-.login-box {
-    background: url('../img/us.jpg') center/cover no-repeat;
-    border-radius: var(--radius);
-    padding: 48px 32px 40px;
-    text-align: center;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    max-width: 400px;
-    width: 92%;
-    color: #fff;
+    min-height: 100dvh;
     position: relative;
-    overflow: hidden;
-    min-height: 420px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    background: url('../img/us.jpg') center/cover no-repeat;
 }
-.login-box::before {
+.login-screen::before {
     content: '';
     position: absolute;
     inset: 0;
     background: rgba(0,0,0,0.45);
     z-index: 0;
 }
-.login-box > * { position: relative; z-index: 1; }
+.login-screen.active { display: flex; }
+
+.login-box {
+    position: relative;
+    z-index: 1;
+    border-radius: var(--radius);
+    padding: 40px 28px 36px;
+    text-align: center;
+    max-width: 400px;
+    width: 92%;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    background: rgba(15,15,20,0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.08);
+}
 .login-title {
     font-size: 1.8rem;
-    margin-top: 40px;
-    margin-bottom: 4px;
     text-shadow: 0 2px 8px rgba(0,0,0,0.5);
 }
 .heart {
@@ -910,10 +911,12 @@ canvas { max-height: 250px; }
 
     /* Login mobile */
     .login-box {
-        min-height: auto;
-        padding: 32px 20px 28px;
+        padding: 28px 20px 24px;
+        width: 88%;
+        gap: 24px;
     }
-    .login-title { margin-top: 24px; font-size: 1.5rem; }
+    .login-title { font-size: 1.4rem; }
+    .login-box .subtitle { font-size: 0.8rem; margin-bottom: 0; }
 
     /* Toast mobile: full-width banner */
     #toast-container {
