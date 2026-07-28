@@ -107,10 +107,14 @@ const Transactions = {
             } else if (installments > 1 && paymentMethod === 'credito') {
                 const installmentAmount = Math.round((amount / installments) * 100) / 100;
                 const batch = db.batch();
+                const purchaseDate = new Date(date + 'T12:00:00');
                 for (let i = 1; i <= installments; i++) {
+                    const instDate = new Date(purchaseDate);
+                    instDate.setMonth(instDate.getMonth() + i);
+                    const instDateStr = instDate.toISOString().split('T')[0];
                     const ref = db.collection('transactions').doc();
                     const data = {
-                        type, amount: installmentAmount, categoryId, description, date,
+                        type, amount: installmentAmount, categoryId, description, date: instDateStr,
                         paymentMethod, paid: false,
                         installments, installmentNum: i,
                         userId: Auth.currentUser,
