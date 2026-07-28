@@ -10,7 +10,7 @@ const App = {
             window.addEventListener('beforeunload', (e) => {
                 if (this.currentPage === 'nuevo-gasto') {
                     const hasData = document.getElementById('tx-amount').value || document.getElementById('tx-description').value;
-                    if (hasData && !document.getElementById('tx-id').value) {
+                    if (hasData) {
                         e.preventDefault();
                         e.returnValue = '';
                     }

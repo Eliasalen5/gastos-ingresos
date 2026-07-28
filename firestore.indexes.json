@@ -8,5 +8,6 @@
         { "fieldPath": "date", "order": "DESCENDING" }
       ]
     }
-  ]
+  ],
+  "fieldOverrides": []
 }

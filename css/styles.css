@@ -138,7 +138,7 @@ body {
     cursor: pointer;
     transition: background 0.2s;
 }
-.sidebar-user:hover { background: var(--hover); }
+.sidebar-user:hover { background: var(--surface2); }
 .sidebar-user .avatar {
     width: 36px;
     height: 36px;
@@ -597,7 +597,7 @@ input[type="color"] { width: 40px; height: 36px; border: none; cursor: pointer; 
     border-radius: 8px;
     margin-top: 8px;
     object-fit: cover;
-    background: var(--bg2);
+    background: var(--surface);
 }
 .receipt-btn { color: var(--primary) !important; }
 .receipt-mini { cursor: pointer; color: var(--primary); margin-left: 4px; font-size: 0.85em; }

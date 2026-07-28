@@ -185,6 +185,10 @@ const Transactions = {
     },
 
     async markAllGroupPaid(userId, month) {
+        if (userId !== Auth.currentUser) {
+            App.toast('No podés pagar cuotas de otro usuario', 'error');
+            return;
+        }
         const pending = this.list.filter(tx =>
             tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(month) && tx.paid === false && tx.installments > 1
         );
