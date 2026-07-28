@@ -12,18 +12,18 @@ const Dashboard = {
                 const v = tab.dataset.view;
                 document.getElementById('dash-individual').classList.toggle('hidden', v !== 'individual');
                 document.getElementById('dash-grupal').classList.toggle('hidden', v !== 'grupal');
-                v === 'grupal' ? this.renderGrupal() : this.renderIndividual();
+                requestAnimationFrame(() => { v === 'grupal' ? this.renderGrupal() : this.renderIndividual(); });
             });
         });
         const monthInput = document.getElementById('grupal-month');
         if (monthInput) {
             monthInput.value = Utils.currentYearMonth();
-            monthInput.addEventListener('change', () => this.renderGrupal());
+            monthInput.addEventListener('change', () => requestAnimationFrame(() => this.renderGrupal()));
         }
         const indMonth = document.getElementById('individual-month');
         if (indMonth) {
             indMonth.value = Utils.currentYearMonth();
-            indMonth.addEventListener('change', () => this.renderIndividual());
+            indMonth.addEventListener('change', () => requestAnimationFrame(() => this.renderIndividual()));
         }
         const catDetailModal = document.getElementById('cat-detail-modal');
         if (catDetailModal) {
@@ -34,7 +34,7 @@ const Dashboard = {
 
     refresh() {
         const isGrupal = !document.getElementById('dash-grupal').classList.contains('hidden');
-        isGrupal ? this.renderGrupal() : this.renderIndividual();
+        requestAnimationFrame(() => { isGrupal ? this.renderGrupal() : this.renderIndividual(); });
     },
 
     destroyChart(key) {
@@ -87,12 +87,14 @@ const Dashboard = {
             data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 onClick: (e, el) => {
                     if (el.length > 0) this.showCatDetail();
                 },
                 plugins: { legend: { position: 'bottom', labels: { padding: 10, font: { size: 11 } } } }
             }
         });
+        this.charts.cat.resize();
     },
 
     showCatDetail() {
