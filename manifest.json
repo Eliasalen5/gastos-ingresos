@@ -1,5 +1,5 @@
 {
-    "name": "Gastos & Ingresos",
+    "name": "Nuestros Gastos",
     "short_name": "GastosApp",
     "start_url": "/",
     "display": "standalone",
