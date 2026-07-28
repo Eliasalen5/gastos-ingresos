@@ -20,6 +20,11 @@ const Dashboard = {
             monthInput.value = Utils.currentYearMonth();
             monthInput.addEventListener('change', () => this.renderGrupal());
         }
+        const indMonth = document.getElementById('individual-month');
+        if (indMonth) {
+            indMonth.value = Utils.currentYearMonth();
+            indMonth.addEventListener('change', () => this.renderIndividual());
+        }
     },
 
     refresh() {
@@ -31,9 +36,15 @@ const Dashboard = {
         if (this.charts[key]) { this.charts[key].destroy(); this.charts[key] = null; }
     },
 
+    _individualMonth() {
+        const el = document.getElementById('individual-month');
+        return el ? el.value : Utils.currentYearMonth();
+    },
+
     renderIndividual() {
         const userId = Auth.currentUser;
-        const txs = Transactions.getCurrentMonthTxs().filter(t => t.userId === userId);
+        const prefix = this._individualMonth();
+        const txs = Transactions.list.filter(tx => tx.userId === userId && tx.date && tx.date.startsWith(prefix));
         const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expense = txs.filter(t => t.type === 'expense' && t.paid !== false).reduce((s, t) => s + t.amount, 0);
 
@@ -41,14 +52,14 @@ const Dashboard = {
         document.getElementById('income-amount').textContent = Utils.formatMoney(income);
         document.getElementById('expense-amount').textContent = Utils.formatMoney(expense);
 
-        this.renderCategoryChart(userId);
-        this.renderRecent(userId);
+        this.renderCategoryChart(userId, prefix);
+        this.renderRecent(userId, prefix);
         this.renderPendingWidget();
         Notifications.renderWidget();
     },
 
-    renderCategoryChart(userId) {
-        const txs = Transactions.getCurrentMonthTxs().filter(t => t.type === 'expense' && t.paid !== false && t.userId === userId);
+    renderCategoryChart(userId, prefix) {
+        const txs = Transactions.list.filter(tx => tx.type === 'expense' && t.paid !== false && t.userId === userId && tx.date && tx.date.startsWith(prefix));
         const map = {};
         txs.forEach(tx => {
             const cat = Categories.getById(tx.categoryId);
@@ -72,10 +83,10 @@ const Dashboard = {
         });
     },
 
-    renderRecent(userId) {
+    renderRecent(userId, prefix) {
         const el = document.getElementById('recent-transactions');
         if (!el) return;
-        const recent = Transactions.getCurrentMonthTxs().filter(tx => tx.userId === userId).slice(0, 5);
+        const recent = Transactions.list.filter(tx => tx.userId === userId && tx.date && tx.date.startsWith(prefix)).slice(0, 5);
         if (recent.length === 0) {
             el.innerHTML = '<p class="muted">Sin transacciones</p>';
             return;
