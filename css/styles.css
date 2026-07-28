@@ -33,12 +33,13 @@ body {
 /* ── Login ── */
 .login-screen {
     display: none;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     min-height: 100vh;
     min-height: 100dvh;
     position: relative;
     background: url('../img/us.jpg') center/cover no-repeat;
+    padding-top: 15vh;
 }
 .login-screen::before {
     content: '';
@@ -49,27 +50,19 @@ body {
 }
 .login-screen.active { display: flex; }
 
-.login-box {
+.login-content {
     position: relative;
     z-index: 1;
-    border-radius: var(--radius);
-    padding: 40px 28px 36px;
     text-align: center;
-    max-width: 400px;
-    width: 92%;
     color: #fff;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 32px;
-    background: rgba(15,15,20,0.6);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.08);
 }
 .login-title {
     font-size: 1.8rem;
-    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    text-shadow: 0 2px 12px rgba(0,0,0,0.6);
 }
 .heart {
     display: inline-block;
@@ -79,7 +72,6 @@ body {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.2); }
 }
-.login-box .subtitle { color: rgba(255,255,255,0.85); margin-bottom: 28px; font-size: 0.9rem; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
 .user-selection { display: flex; gap: 16px; justify-content: center; }
 .user-btn {
     background: rgba(0,0,0,0.4);
@@ -910,13 +902,9 @@ canvas { max-height: 250px; }
     .form-row { grid-template-columns: 1fr; }
 
     /* Login mobile */
-    .login-box {
-        padding: 28px 20px 24px;
-        width: 88%;
-        gap: 24px;
-    }
+    .login-content { gap: 24px; }
     .login-title { font-size: 1.4rem; }
-    .login-box .subtitle { font-size: 0.8rem; margin-bottom: 0; }
+    .login-screen { padding-top: 12vh; }
 
     /* Toast mobile: full-width banner */
     #toast-container {
