@@ -923,6 +923,13 @@ canvas { max-height: 250px; }
     /* Modals tighter padding */
     .modal { padding: 12px; }
 
+    /* Date input compact on mobile */
+    input[type="date"].form-control,
+    input[type="month"].form-control {
+        font-size: 14px;
+        padding: 8px 10px;
+    }
+
     /* Notification bigger tap target */
     .notif-btn {
         padding: 8px;
