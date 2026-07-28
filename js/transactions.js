@@ -136,8 +136,9 @@ const Transactions = {
             const otherUser = Auth.currentUser === 'nadia' ? 'Elias' : 'Nadia';
             const typeLabel = type === 'expense' ? 'gastó' : 'recibió';
             const cat = Categories.getById(categoryId);
+            const title = type === 'expense' ? 'Nuevo gasto' : 'Nuevo ingreso';
             const detail = `${currentUser} ${typeLabel} ${Utils.formatMoney(amount)} ${description || (cat ? cat.name : '')}`;
-            Notifications.add('transaction', otherUser, detail, otherUser.toLowerCase());
+            Notifications.add('transaction', title, detail, otherUser.toLowerCase());
             this.resetForm();
             await this.load();
             App.navigate('gastos');
@@ -171,6 +172,11 @@ const Transactions = {
         try {
             await db.collection('transactions').doc(id).update({ paid: true });
             App.toast('Marcado como pagado', 'success');
+            const currentUserName = Auth.currentUser === 'nadia' ? 'Nadia' : 'Elias';
+            const otherUserId = Auth.currentUser === 'nadia' ? 'elias' : 'nadia';
+            const cat = Categories.getById(tx.categoryId);
+            const detail = `${currentUserName} pagó cuota ${tx.installmentNum}/${tx.installments} de ${tx.description || (cat ? cat.name : '')} (${Utils.formatMoney(tx.amount)})`;
+            Notifications.add('transaction', 'Pago de cuota', detail, otherUserId);
             await this.load();
             App.refreshPage(App.currentPage);
         } catch (e) {
@@ -183,7 +189,8 @@ const Transactions = {
             tx.userId === userId && tx.date && tx.date.startsWith(month) && tx.paid === false && tx.installments > 1
         );
         if (pending.length === 0) return;
-        const monthName = new Date(month + '-15T12:00:00').toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+        const monthDate = new Date(month + '-15T12:00:00');
+        const monthName = monthDate.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
         if (!confirm(`¿Pagar las ${pending.length} cuota(s) de ${monthName}?`)) return;
         try {
             const batch = db.batch();
@@ -192,6 +199,11 @@ const Transactions = {
             });
             await batch.commit();
             App.toast(`${pending.length} cuota(s) pagada(s)`, 'success');
+            const currentUserName = Auth.currentUser === 'nadia' ? 'Nadia' : 'Elias';
+            const otherUserId = Auth.currentUser === 'nadia' ? 'elias' : 'nadia';
+            const totalAmount = pending.reduce((s, tx) => s + tx.amount, 0);
+            const detail = `${currentUserName} pagó ${pending.length} cuota(s) de ${monthName} (${Utils.formatMoney(totalAmount)})`;
+            Notifications.add('transaction', 'Pago de cuotas', detail, otherUserId);
             await this.load();
             App.refreshPage(App.currentPage);
         } catch (e) {

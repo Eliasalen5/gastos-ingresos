@@ -30,7 +30,7 @@ const Dashboard = {
         const userId = Auth.currentUser;
         const txs = Transactions.getCurrentMonthTxs().filter(t => t.userId === userId);
         const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-        const expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        const expense = txs.filter(t => t.type === 'expense' && t.paid !== false).reduce((s, t) => s + t.amount, 0);
 
         document.getElementById('balance-amount').textContent = Utils.formatMoney(income - expense);
         document.getElementById('income-amount').textContent = Utils.formatMoney(income);
@@ -43,7 +43,7 @@ const Dashboard = {
     },
 
     renderCategoryChart(userId) {
-        const txs = Transactions.getCurrentMonthTxs().filter(t => t.type === 'expense' && t.userId === userId);
+        const txs = Transactions.getCurrentMonthTxs().filter(t => t.type === 'expense' && t.paid !== false && t.userId === userId);
         const map = {};
         txs.forEach(tx => {
             const cat = Categories.getById(tx.categoryId);
@@ -110,7 +110,7 @@ const Dashboard = {
     renderGrupal() {
         const txs = Transactions.getCurrentMonthTxs();
         const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-        const expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        const expense = txs.filter(t => t.type === 'expense' && t.paid !== false).reduce((s, t) => s + t.amount, 0);
 
         document.getElementById('grupal-balance').textContent = Utils.formatMoney(income - expense);
         document.getElementById('grupal-income').textContent = Utils.formatMoney(income);
@@ -122,9 +122,9 @@ const Dashboard = {
 
     renderComparison(txs) {
         const nIncome = txs.filter(t => t.type === 'income' && t.userId === 'nadia').reduce((s, t) => s + t.amount, 0);
-        const nExpense = txs.filter(t => t.type === 'expense' && t.userId === 'nadia').reduce((s, t) => s + t.amount, 0);
+        const nExpense = txs.filter(t => t.type === 'expense' && t.paid !== false && t.userId === 'nadia').reduce((s, t) => s + t.amount, 0);
         const eIncome = txs.filter(t => t.type === 'income' && t.userId === 'elias').reduce((s, t) => s + t.amount, 0);
-        const eExpense = txs.filter(t => t.type === 'expense' && t.userId === 'elias').reduce((s, t) => s + t.amount, 0);
+        const eExpense = txs.filter(t => t.type === 'expense' && t.paid !== false && t.userId === 'elias').reduce((s, t) => s + t.amount, 0);
 
         const canvas = document.getElementById('grupal-comparison-chart');
         if (!canvas) return;
@@ -147,8 +147,8 @@ const Dashboard = {
         if (!el) return;
         const nIncome = txs.filter(t => t.type === 'income' && t.userId === 'nadia').reduce((s, t) => s + t.amount, 0);
         const eIncome = txs.filter(t => t.type === 'income' && t.userId === 'elias').reduce((s, t) => s + t.amount, 0);
-        const nExpense = txs.filter(t => t.type === 'expense' && t.userId === 'nadia').reduce((s, t) => s + t.amount, 0);
-        const eExpense = txs.filter(t => t.type === 'expense' && t.userId === 'elias').reduce((s, t) => s + t.amount, 0);
+        const nExpense = txs.filter(t => t.type === 'expense' && t.paid !== false && t.userId === 'nadia').reduce((s, t) => s + t.amount, 0);
+        const eExpense = txs.filter(t => t.type === 'expense' && t.paid !== false && t.userId === 'elias').reduce((s, t) => s + t.amount, 0);
         const total = nIncome + eIncome || 1;
         const nPct = (nIncome / total * 100).toFixed(1);
         const ePct = (eIncome / total * 100).toFixed(1);
