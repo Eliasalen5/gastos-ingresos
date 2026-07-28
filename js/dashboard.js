@@ -25,6 +25,11 @@ const Dashboard = {
             indMonth.value = Utils.currentYearMonth();
             indMonth.addEventListener('change', () => this.renderIndividual());
         }
+        const catDetailModal = document.getElementById('cat-detail-modal');
+        if (catDetailModal) {
+            catDetailModal.querySelector('.modal-overlay')?.addEventListener('click', () => catDetailModal.classList.add('hidden'));
+            catDetailModal.querySelector('.modal-close')?.addEventListener('click', () => catDetailModal.classList.add('hidden'));
+        }
     },
 
     refresh() {
@@ -76,11 +81,34 @@ const Dashboard = {
         this.destroyChart('cat');
         if (data.length === 0) { canvas.style.display = 'none'; return; }
         canvas.style.display = 'block';
+        this._catData = labels.map((l, i) => ({ name: l, total: data[i], color: colors[i] }));
         this.charts.cat = new Chart(canvas, {
             type: 'doughnut',
             data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
-            options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { padding: 10, font: { size: 11 } } } } }
+            options: {
+                responsive: true,
+                onClick: (e, el) => {
+                    if (el.length > 0) this.showCatDetail();
+                },
+                plugins: { legend: { position: 'bottom', labels: { padding: 10, font: { size: 11 } } } }
+            }
         });
+    },
+
+    showCatDetail() {
+        const modal = document.getElementById('cat-detail-modal');
+        const body = document.getElementById('cat-detail-body');
+        if (!modal || !body || !this._catData) return;
+        const total = this._catData.reduce((s, c) => s + c.total, 0);
+        body.innerHTML = this._catData.map(c => `
+            <div class="cat-detail-row">
+                <div class="cat-detail-color" style="background:${c.color}"></div>
+                <span class="cat-detail-name">${Utils.esc(c.name)}</span>
+                <span class="cat-detail-pct">${(c.total / total * 100).toFixed(1)}%</span>
+                <span class="cat-detail-amount">${Utils.formatMoney(c.total)}</span>
+            </div>
+        `).join('');
+        modal.classList.remove('hidden');
     },
 
     renderRecent(userId, prefix) {
