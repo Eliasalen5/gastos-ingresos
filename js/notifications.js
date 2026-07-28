@@ -3,18 +3,42 @@ const Notifications = {
     PAYDAY_KEY: 'app_payday_notified',
     MAX_ITEMS: 10,
     unsub: null,
+    refreshInterval: null,
+    paydayInterval: null,
 
     init() {
         this.requestPermission();
         this.listenForNotifications();
+        this.fetchNow();
         this.checkPayday();
-        setInterval(() => this.checkPayday(), 60 * 60 * 1000);
+        this.paydayInterval = setInterval(() => this.checkPayday(), 60 * 60 * 1000);
         this.bindDropdown();
         this.renderWidget();
+        this.renderBadge();
+        if (this.refreshInterval) clearInterval(this.refreshInterval);
+        this.refreshInterval = setInterval(() => this.fetchNow(), 30000);
     },
 
     destroy() {
         if (this.unsub) { this.unsub(); this.unsub = null; }
+        if (this.refreshInterval) { clearInterval(this.refreshInterval); this.refreshInterval = null; }
+        if (this.paydayInterval) { clearInterval(this.paydayInterval); this.paydayInterval = null; }
+    },
+
+    async fetchNow() {
+        const user = Auth.currentUser;
+        if (!user) return;
+        try {
+            const snap = await db.collection('notifications')
+                .where('targetUser', '==', user)
+                .orderBy('date', 'desc')
+                .limit(this.MAX_ITEMS)
+                .get();
+            this.list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            this.renderBadge();
+        } catch (e) {
+            console.error('Notif fetch error:', e);
+        }
     },
 
     listenForNotifications() {
