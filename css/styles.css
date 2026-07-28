@@ -917,13 +917,12 @@ canvas { max-height: 250px; }
         margin-top: 8px;
     }
 
-    /* Filters: 2-col grid on tablet+mobile */
+    /* Filters: stacked on mobile for full-width */
     .filters-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
+        display: flex;
+        flex-direction: column;
         gap: 8px;
     }
-    .filters-row .form-control { min-width: 0; }
 
     /* Modals tighter padding */
     .modal { padding: 12px; }
@@ -941,7 +940,7 @@ canvas { max-height: 250px; }
     .bottom-nav-item { font-size: 0.55rem; }
     .bottom-nav-item i { font-size: 0.9rem; }
     .tx-actions .icon-btn { padding: 3px; font-size: 0.72rem; }
-    .filters-row { grid-template-columns: 1fr; }
+    .filters-row { flex-direction: column; }
 }
 
 @media (min-width: 769px) {
