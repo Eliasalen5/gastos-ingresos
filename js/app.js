@@ -51,6 +51,8 @@ const App = {
                 closeSidebar();
             }
         });
+        const sidebarUser = document.querySelector('.sidebar-user');
+        if (sidebarUser) sidebarUser.addEventListener('click', () => this.navigate('home'));
     },
 
     navigate(page) {
