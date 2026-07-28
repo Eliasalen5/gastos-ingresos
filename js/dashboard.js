@@ -145,14 +145,14 @@ const Dashboard = {
     renderUserBars(txs) {
         const el = document.getElementById('grupal-user-bars');
         if (!el) return;
-        const nTotal = txs.filter(t => t.type === 'expense' && t.userId === 'nadia').reduce((s, t) => s + t.amount, 0);
-        const eTotal = txs.filter(t => t.type === 'expense' && t.userId === 'elias').reduce((s, t) => s + t.amount, 0);
+        const nTotal = txs.filter(t => t.type === 'income' && t.userId === 'nadia').reduce((s, t) => s + t.amount, 0);
+        const eTotal = txs.filter(t => t.type === 'income' && t.userId === 'elias').reduce((s, t) => s + t.amount, 0);
         const total = nTotal + eTotal || 1;
         const nPct = (nTotal / total * 100).toFixed(1);
         const ePct = (eTotal / total * 100).toFixed(1);
 
         el.innerHTML = `
-            <div class="card-title">Gastos del mes por usuario</div>
+            <div class="card-title">Ingresos del mes por usuario</div>
             <div class="user-bar-group">
                 <div class="user-bar-header">
                     <span class="fw600 nadia-color">Nadia</span>
