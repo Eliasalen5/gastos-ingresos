@@ -551,7 +551,7 @@ body {
 .pay-btn.active { border-color: var(--primary); color: var(--primary); background: rgba(108,99,255,0.1); }
 
 /* ── Form ── */
-.form-group { margin-bottom: 16px; }
+.form-group { margin-bottom: 16px; min-width: 0; }
 .form-group label {
     display: block;
     font-size: 0.8rem;
@@ -577,12 +577,13 @@ input[type="date"].form-control,
 input[type="month"].form-control {
     min-width: 0;
     width: 100%;
+    max-width: 100%;
 }
 .form-control:focus { outline: none; border-color: var(--primary); }
 .form-control:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 select.form-control { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238888AA' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
 input[type="color"] { width: 40px; height: 36px; border: none; cursor: pointer; background: none; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-width: 0; }
 .installment-preview {
     font-size: 0.82rem;
     color: var(--primary);
