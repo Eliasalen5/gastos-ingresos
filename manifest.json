@@ -1,6 +1,6 @@
 {
     "name": "Nuestros Gastos",
-    "short_name": "GastosApp",
+    "short_name": "Nuestros Gastos",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#0F0F14",
