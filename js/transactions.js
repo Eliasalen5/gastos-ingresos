@@ -100,10 +100,26 @@ const Transactions = {
             }
 
             if (id) {
+                const originalTx = this.list.find(t => t.id === id);
                 const paid = paymentMethod === 'debito';
                 const data = { type, amount, categoryId, description, date, paymentMethod, paid, userId: Auth.currentUser, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
                 if (receiptUrl) data.receiptUrl = receiptUrl;
                 await db.collection('transactions').doc(id).update(data);
+                if (originalTx && originalTx.installments > 1) {
+                    const siblings = this.list.filter(t =>
+                        t.id !== id && t.userId === Auth.currentUser &&
+                        t.description === originalTx.description &&
+                        t.installments === originalTx.installments && t.installments > 1 &&
+                        t.amount === originalTx.amount
+                    );
+                    if (siblings.length > 0) {
+                        const batch = db.batch();
+                        const up = { categoryId };
+                        if (description) up.description = description;
+                        siblings.forEach(sib => batch.update(db.collection('transactions').doc(sib.id), up));
+                        await batch.commit();
+                    }
+                }
             } else if (installments >= 1 && paymentMethod === 'credito') {
                 const installmentAmount = Math.round((amount / installments) * 100) / 100;
                 const batch = db.batch();
@@ -236,8 +252,8 @@ const Transactions = {
 
         if (tx.installments > 1) {
             document.getElementById('tx-installments').value = tx.installments;
-            document.getElementById('tx-amount').value = tx.amount * tx.installments;
-            this.updatePreview();
+            document.getElementById('tx-amount').value = tx.amount;
+            document.getElementById('installment-preview').textContent = '';
         }
 
         if (tx.receiptUrl) {
