@@ -150,7 +150,7 @@ const App = {
         const summaryEl = document.getElementById('pagos-summary');
         if (!el) return;
 
-        const pending = Transactions.getUnpaidExpenses().filter(tx => tx.installments > 1);
+        const pending = Transactions.getUnpaidExpenses().filter(tx => tx.installments >= 1);
         const total = pending.reduce((s, tx) => s + tx.amount, 0);
 
         summaryEl.innerHTML = pending.length === 0

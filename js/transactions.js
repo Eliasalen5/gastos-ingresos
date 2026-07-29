@@ -104,7 +104,7 @@ const Transactions = {
                 const data = { type, amount, categoryId, description, date, paymentMethod, paid, userId: Auth.currentUser, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
                 if (receiptUrl) data.receiptUrl = receiptUrl;
                 await db.collection('transactions').doc(id).update(data);
-            } else if (installments > 1 && paymentMethod === 'credito') {
+            } else if (installments >= 1 && paymentMethod === 'credito') {
                 const installmentAmount = Math.round((amount / installments) * 100) / 100;
                 const batch = db.batch();
                 const purchaseDate = new Date(date + 'T12:00:00');
@@ -190,7 +190,7 @@ const Transactions = {
             return;
         }
         const pending = this.list.filter(tx =>
-            tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(month) && tx.paid === false && tx.installments > 1
+            tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(month) && tx.paid === false && tx.installments >= 1
         );
         if (pending.length === 0) return;
         const monthDate = new Date(month + '-15T12:00:00');
@@ -304,7 +304,7 @@ const Transactions = {
             const userName = tx.userId === 'nadia' ? 'Nadia' : 'Elias';
             const userColor = tx.userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
             const paidBadge = tx.paid === false ? '<span class="pending-badge">Pendiente</span>' : '';
-            const instBadge = tx.installments > 1 ? ` <span class="inst-badge">Cuota ${tx.installmentNum}/${tx.installments}</span>` : '';
+            const instBadge = tx.installments >= 1 ? ` <span class="inst-badge">Cuota ${tx.installmentNum}/${tx.installments}</span>` : '';
             const receiptBtn = tx.receiptUrl
                 ? `<button class="icon-btn receipt-btn" data-receipt="${Utils.esc(tx.receiptUrl)}" title="Ver comprobante"><i class="fas fa-image"></i></button>`
                 : '';
