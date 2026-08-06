@@ -52,8 +52,9 @@ const Dashboard = {
         const txs = Transactions.list.filter(tx => tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(prefix));
         const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expense = txs.filter(t => t.type === 'expense' && t.paid !== false).reduce((s, t) => s + t.amount, 0);
+        const saved = typeof Ahorro !== 'undefined' && Ahorro.getMonthSaved ? Ahorro.getMonthSaved(userId, prefix) : 0;
 
-        document.getElementById('balance-amount').textContent = Utils.formatMoney(income - expense);
+        document.getElementById('balance-amount').textContent = Utils.formatMoney(income - expense - saved);
         document.getElementById('income-amount').textContent = Utils.formatMoney(income);
         document.getElementById('expense-amount').textContent = Utils.formatMoney(expense);
 
@@ -172,12 +173,14 @@ const Dashboard = {
         const txs = Transactions.list.filter(tx => typeof tx.date === 'string' && tx.date.startsWith(prefix));
         const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expense = txs.filter(t => t.type === 'expense' && t.paid !== false).reduce((s, t) => s + t.amount, 0);
+        const saved = typeof Ahorro !== 'undefined' && Ahorro.getMonthSavedAll ? Ahorro.getMonthSavedAll(prefix) : 0;
 
-        document.getElementById('grupal-balance').textContent = Utils.formatMoney(income - expense);
+        document.getElementById('grupal-balance').textContent = Utils.formatMoney(income - expense - saved);
         document.getElementById('grupal-income').textContent = Utils.formatMoney(income);
         document.getElementById('grupal-expense').textContent = Utils.formatMoney(expense);
 
         this.renderComparison(txs);
+        this.renderCategoryGrupalChart(txs);
         this.renderUserBars(txs, prefix);
     },
 
@@ -201,6 +204,93 @@ const Dashboard = {
             },
             options: { responsive: true, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: 'bottom' } } }
         });
+    },
+
+    renderCategoryGrupalChart(txs) {
+        const canvas = document.getElementById('grupal-category-chart');
+        if (!canvas) return;
+        this.destroyChart('grupalCat');
+
+        const paid = txs.filter(tx => tx.type === 'expense' && tx.paid !== false);
+        const map = {};
+        paid.forEach(tx => {
+            const cat = Categories.getById(tx.categoryId);
+            const k = cat ? cat.id : 'otros';
+            map[k] = map[k] || { name: cat ? cat.name : 'Otros', color: cat ? cat.color : '#95A5A6', nadia: 0, elias: 0, total: 0 };
+            if (tx.userId === 'nadia') map[k].nadia += tx.amount;
+            else map[k].elias += tx.amount;
+            map[k].total += tx.amount;
+        });
+
+        const entries = Object.values(map);
+        this._catGrupalData = entries;
+
+        const data = [];
+        const colors = [];
+        const slices = [];
+        entries.forEach(c => {
+            data.push(c.nadia, c.elias);
+            colors.push('rgba(255,107,157,0.85)', 'rgba(78,205,196,0.85)');
+            slices.push({ cat: c.name, user: 'Nadia', amount: c.nadia });
+            slices.push({ cat: c.name, user: 'Elias', amount: c.elias });
+        });
+
+        if (data.length === 0 || typeof Chart === 'undefined') {
+            canvas.style.display = data.length === 0 ? 'none' : 'block';
+            return;
+        }
+        canvas.style.display = 'block';
+        try {
+            this.charts.grupalCat = new Chart(canvas, {
+                type: 'doughnut',
+                data: { labels: slices.map(s => `${s.cat} · ${s.user}`), datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (e, el) => {
+                        if (el.length > 0) this.showCatGrupalDetail();
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const s = slices[ctx.dataIndex];
+                                    const c = entries.find(x => x.name === s.cat);
+                                    const total = c ? c.total : 0;
+                                    return `${s.cat} · ${s.user}: ${Utils.formatMoney(s.amount)} (Total: ${Utils.formatMoney(total)})`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Chart error:', e);
+        }
+    },
+
+    showCatGrupalDetail() {
+        const modal = document.getElementById('cat-detail-modal');
+        const body = document.getElementById('cat-detail-body');
+        if (!modal || !body || !this._catGrupalData) return;
+        const total = this._catGrupalData.reduce((s, c) => s + c.total, 0);
+        body.innerHTML = `
+            <div class="cat-detail-head">
+                <span class="cat-detail-name">Categoría</span>
+                <span class="cat-detail-amount" style="color:var(--nadia)">Nadia</span>
+                <span class="cat-detail-amount" style="color:var(--elias)">Elias</span>
+                <span class="cat-detail-amount">Total</span>
+            </div>` +
+            this._catGrupalData.map(c => `
+                <div class="cat-detail-row">
+                    <div class="cat-detail-color" style="background:${c.color}"></div>
+                    <span class="cat-detail-name">${Utils.esc(c.name)}</span>
+                    <span class="cat-detail-amount">${Utils.formatMoney(c.nadia)}</span>
+                    <span class="cat-detail-amount">${Utils.formatMoney(c.elias)}</span>
+                    <span class="cat-detail-amount fw700">${Utils.formatMoney(c.total)}</span>
+                </div>`).join('');
+        modal.classList.remove('hidden');
     },
 
     renderUserBars(txs, prefix) {

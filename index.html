@@ -56,6 +56,7 @@
             <div class="nav-item active" data-page="home"><i class="fas fa-home"></i> Home</div>
             <div class="nav-item nav-expense" data-page="gastos"><i class="fas fa-arrow-down"></i> Gastos</div>
             <div class="nav-item nav-income" data-page="ingresos"><i class="fas fa-arrow-up"></i> Ingresos</div>
+            <div class="nav-item nav-ahorro" data-page="ahorro"><i class="fas fa-piggy-bank"></i> Ahorro</div>
             <div class="nav-divider"></div>
             <div class="nav-item" data-page="nuevo-gasto"><i class="fas fa-plus-circle"></i> Nuevo gasto</div>
             <div class="nav-divider"></div>
@@ -118,6 +119,14 @@
                         <div class="stat-card"><div class="label">Gastos</div><div class="value" id="grupal-expense" style="color:var(--error)">$0</div></div>
                     </div>
                     <div class="card"><div class="card-title">Comparación</div><canvas id="grupal-comparison-chart"></canvas></div>
+                    <div class="card">
+                        <div class="card-title">Gastos por categoría por usuario</div>
+                        <canvas id="grupal-category-chart"></canvas>
+                        <div class="grupal-legend">
+                            <span class="legend-item"><span class="legend-dot" style="background:var(--nadia)"></span> Nadia</span>
+                            <span class="legend-item"><span class="legend-dot" style="background:var(--elias)"></span> Elias</span>
+                        </div>
+                    </div>
                     <div class="card"><div class="card-title">Gastos por usuario</div><div id="grupal-user-bars"></div></div>
                 </div>
             </div>
@@ -207,6 +216,94 @@
                 <div id="pagos-list"></div>
             </div>
 
+            <!-- ══════ AHORRO ══════ -->
+            <div class="page" id="page-ahorro">
+                <div class="card">
+                    <div class="card-title">Tipo de cambio del día</div>
+                    <div class="dolar-grid" id="dolar-rates"></div>
+                    <div class="dolar-meta" id="dolar-meta"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Cuánto corresponde ahorrar (30% del salario)</div>
+                    <div style="margin-bottom:16px">
+                        <input type="month" class="form-control" id="ahorro-month" style="max-width:220px">
+                    </div>
+                    <div id="ahorro-targets"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Total ahorrado</div>
+                    <div class="stats-row" id="ahorro-totals"></div>
+                </div>
+
+                <div class="card">
+                    <h3 id="ahorro-form-title" style="margin-bottom:16px">Registrar movimiento</h3>
+                    <form id="ahorro-form">
+                        <input type="hidden" id="ahorro-id">
+
+                        <div class="form-group">
+                            <label>Tipo</label>
+                            <div class="mov-type-group">
+                                <button type="button" class="mov-type-btn active" data-ahorro-type="deposito"><i class="fas fa-arrow-up"></i> Depositar</button>
+                                <button type="button" class="mov-type-btn" data-ahorro-type="retiro"><i class="fas fa-arrow-down"></i> Retirar</button>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Moneda</label>
+                                <select class="form-control" id="ahorro-currency">
+                                    <option value="ARS">Pesos (ARS)</option>
+                                    <option value="USD">Dólares (USD)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Usuario</label>
+                                <select class="form-control" id="ahorro-user">
+                                    <option value="nadia">Nadia</option>
+                                    <option value="elias">Elias</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Monto</label>
+                                <input type="number" step="0.01" class="form-control" id="ahorro-amount" placeholder="0.00" required>
+                            </div>
+                            <div class="form-group" id="ahorro-rate-group">
+                                <label>Tipo de cambio (USD)</label>
+                                <input type="number" step="0.01" class="form-control" id="ahorro-rate" placeholder="0.00">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Fecha</label>
+                                <input type="date" class="form-control" id="ahorro-date" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Descripción</label>
+                                <input type="text" class="form-control" id="ahorro-description" placeholder="Opcional">
+                            </div>
+                        </div>
+
+                        <div class="ahorro-preview" id="ahorro-preview"></div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar</button>
+                            <button type="button" class="btn btn-ghost" id="ahorro-cancel"><i class="fas fa-times"></i></button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Historial</div>
+                    <div id="ahorro-history"></div>
+                </div>
+            </div>
+
             <!-- ══════ CATEGORÍAS ══════ -->
             <div class="page" id="page-categorias">
                 <button class="btn btn-primary" id="add-category-btn" style="margin-bottom:16px"><i class="fas fa-plus"></i> Nueva categoría</button>
@@ -221,6 +318,7 @@
         <div class="bottom-nav-item active" data-page="home"><i class="fas fa-home"></i><span>Inicio</span></div>
         <div class="bottom-nav-item" data-page="gastos"><i class="fas fa-arrow-down"></i><span>Gastos</span></div>
         <div class="bottom-nav-item" data-page="ingresos"><i class="fas fa-arrow-up"></i><span>Ingresos</span></div>
+        <div class="bottom-nav-item" data-page="ahorro"><i class="fas fa-piggy-bank"></i><span>Ahorro</span></div>
         <div class="bottom-nav-item" data-page="nuevo-gasto"><i class="fas fa-plus-circle"></i><span>Nuevo</span></div>
         <div class="bottom-nav-item" data-page="pagos"><i class="fas fa-credit-card"></i><span>Pagos</span></div>
         <div class="bottom-nav-item" data-page="categorias"><i class="fas fa-th"></i><span>Cat.</span></div>
@@ -276,6 +374,7 @@
 <script src="js/categories.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/transactions.js"></script>
+<script src="js/ahorro.js"></script>
 <script src="js/notifications.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/app.js"></script>
