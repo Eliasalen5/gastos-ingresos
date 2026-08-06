@@ -85,6 +85,10 @@ const Ahorro = {
     getMonthIncome(userId, prefix) {
         return Transactions.list
             .filter(tx => tx.userId === userId && tx.type === 'income' && typeof tx.date === 'string' && tx.date.startsWith(prefix))
+            .filter(tx => {
+                const cat = Categories.getById(tx.categoryId);
+                return cat && cat.name && cat.name.trim().toLowerCase() === 'salario';
+            })
             .reduce((s, t) => s + (t.amount || 0), 0);
     },
 
