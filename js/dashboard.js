@@ -5,16 +5,6 @@ const Dashboard = {
     init() {
         if (this._bound) return;
         this._bound = true;
-        document.querySelectorAll('.dash-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.dash-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                const v = tab.dataset.view;
-                document.getElementById('dash-individual').classList.toggle('hidden', v !== 'individual');
-                document.getElementById('dash-grupal').classList.toggle('hidden', v !== 'grupal');
-                v === 'grupal' ? this.renderGrupal() : this.renderIndividual();
-            });
-        });
         const monthInput = document.getElementById('grupal-month');
         if (monthInput) {
             monthInput.value = Utils.currentYearMonth();
@@ -33,12 +23,22 @@ const Dashboard = {
     },
 
     refresh() {
-        const isGrupal = !document.getElementById('dash-grupal').classList.contains('hidden');
-        isGrupal ? this.renderGrupal() : this.renderIndividual();
+        this.renderIndividual();
     },
 
     destroyChart(key) {
         if (this.charts[key]) { this.charts[key].destroy(); this.charts[key] = null; }
+    },
+
+    lighten(hex, t) {
+        let h = (hex || '#95A5A6').replace('#', '');
+        if (h.length === 3) h = h.split('').map(ch => ch + ch).join('');
+        const n = parseInt(h, 16);
+        if (isNaN(n)) return hex || '#95A5A6';
+        const r = Math.round(((n >> 16) & 255) + (255 - ((n >> 16) & 255)) * t);
+        const g = Math.round(((n >> 8) & 255) + (255 - ((n >> 8) & 255)) * t);
+        const b = Math.round((n & 255) + (255 - (n & 255)) * t);
+        return `rgb(${r},${g},${b})`;
     },
 
     _individualMonth() {
@@ -230,7 +230,7 @@ const Dashboard = {
         const slices = [];
         entries.forEach(c => {
             data.push(c.nadia, c.elias);
-            colors.push('rgba(255,107,157,0.85)', 'rgba(78,205,196,0.85)');
+            colors.push(c.color, this.lighten(c.color, 0.5));
             slices.push({ cat: c.name, user: 'Nadia', amount: c.nadia });
             slices.push({ cat: c.name, user: 'Elias', amount: c.elias });
         });

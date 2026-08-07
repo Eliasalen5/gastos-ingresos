@@ -57,6 +57,7 @@
             <div class="nav-item nav-expense" data-page="gastos"><i class="fas fa-arrow-down"></i> Gastos</div>
             <div class="nav-item nav-income" data-page="ingresos"><i class="fas fa-arrow-up"></i> Ingresos</div>
             <div class="nav-item nav-ahorro" data-page="ahorro"><i class="fas fa-piggy-bank"></i> Ahorro</div>
+            <div class="nav-item nav-comparativa" data-page="comparativa"><i class="fas fa-chart-pie"></i> Comparativa</div>
             <div class="nav-divider"></div>
             <div class="nav-item" data-page="nuevo-gasto"><i class="fas fa-plus-circle"></i> Nuevo gasto</div>
             <div class="nav-divider"></div>
@@ -87,48 +88,40 @@
 
             <!-- ══════ HOME ══════ -->
             <div class="page active" id="page-home">
-                <div class="tabs">
-                    <button class="dash-tab active" data-view="individual">Mi resumen</button>
-                    <button class="dash-tab" data-view="grupal">Comparativa</button>
+                <div class="filters-row">
+                    <input type="month" class="form-control" id="individual-month">
                 </div>
+                <div class="stats-row">
+                    <div class="stat-card"><div class="label">Balance</div><div class="value" id="balance-amount">$0</div></div>
+                    <div class="stat-card"><div class="label">Ingresos</div><div class="value" id="income-amount" style="color:var(--success)">$0</div></div>
+                    <div class="stat-card"><div class="label">Gastos</div><div class="value" id="expense-amount" style="color:var(--error)">$0</div></div>
+                </div>
+                <div class="card"><div class="card-title">Por categoría</div><canvas id="category-chart"></canvas></div>
+                <div class="card"><div class="card-title">Pendientes de pago</div><div id="pending-count"></div></div>
+                <div class="card"><div class="card-title">Últimas transacciones</div><div id="recent-transactions"></div></div>
+                <div class="card"><div class="card-title">Próximo cobro</div><div id="next-payroll"></div></div>
+            </div>
 
-                <!-- Individual -->
-                <div id="dash-individual">
-                    <div class="filters-row">
-                        <input type="month" class="form-control" id="individual-month">
-                    </div>
-                    <div class="stats-row">
-                        <div class="stat-card"><div class="label">Balance</div><div class="value" id="balance-amount">$0</div></div>
-                        <div class="stat-card"><div class="label">Ingresos</div><div class="value" id="income-amount" style="color:var(--success)">$0</div></div>
-                        <div class="stat-card"><div class="label">Gastos</div><div class="value" id="expense-amount" style="color:var(--error)">$0</div></div>
-                    </div>
-                    <div class="card"><div class="card-title">Por categoría</div><canvas id="category-chart"></canvas></div>
-                    <div class="card"><div class="card-title">Pendientes de pago</div><div id="pending-count"></div></div>
-                    <div class="card"><div class="card-title">Últimas transacciones</div><div id="recent-transactions"></div></div>
-                    <div class="card"><div class="card-title">Próximo cobro</div><div id="next-payroll"></div></div>
+            <!-- ══════ COMPARATIVA ══════ -->
+            <div class="page" id="page-comparativa">
+                <div class="filters-row">
+                    <input type="month" class="form-control" id="grupal-month">
                 </div>
-
-                <!-- Grupal -->
-                <div class="hidden" id="dash-grupal">
-                    <div class="filters-row">
-                        <input type="month" class="form-control" id="grupal-month">
-                    </div>
-                    <div class="stats-row">
-                        <div class="stat-card"><div class="label">Balance total</div><div class="value" id="grupal-balance">$0</div></div>
-                        <div class="stat-card"><div class="label">Ingresos</div><div class="value" id="grupal-income" style="color:var(--success)">$0</div></div>
-                        <div class="stat-card"><div class="label">Gastos</div><div class="value" id="grupal-expense" style="color:var(--error)">$0</div></div>
-                    </div>
-                    <div class="card"><div class="card-title">Comparación</div><canvas id="grupal-comparison-chart"></canvas></div>
-                    <div class="card">
-                        <div class="card-title">Gastos por categoría por usuario</div>
-                        <canvas id="grupal-category-chart"></canvas>
-                        <div class="grupal-legend">
-                            <span class="legend-item"><span class="legend-dot" style="background:var(--nadia)"></span> Nadia</span>
-                            <span class="legend-item"><span class="legend-dot" style="background:var(--elias)"></span> Elias</span>
-                        </div>
-                    </div>
-                    <div class="card"><div class="card-title">Gastos por usuario</div><div id="grupal-user-bars"></div></div>
+                <div class="stats-row">
+                    <div class="stat-card"><div class="label">Balance total</div><div class="value" id="grupal-balance">$0</div></div>
+                    <div class="stat-card"><div class="label">Ingresos</div><div class="value" id="grupal-income" style="color:var(--success)">$0</div></div>
+                    <div class="stat-card"><div class="label">Gastos</div><div class="value" id="grupal-expense" style="color:var(--error)">$0</div></div>
                 </div>
+                <div class="card"><div class="card-title">Comparación</div><canvas id="grupal-comparison-chart"></canvas></div>
+                <div class="card">
+                    <div class="card-title">Gastos por categoría por usuario</div>
+                    <canvas id="grupal-category-chart"></canvas>
+                    <div class="grupal-legend">
+                        <span class="legend-item"><span class="legend-dot" style="background:var(--nadia)"></span> Nadia (fuerte)</span>
+                        <span class="legend-item"><span class="legend-dot" style="background:rgb(255,181,206)"></span> Elias (claro)</span>
+                    </div>
+                </div>
+                <div class="card"><div class="card-title">Gastos por usuario</div><div id="grupal-user-bars"></div></div>
             </div>
 
             <!-- ══════ GASTOS ══════ -->
@@ -136,7 +129,6 @@
                 <div class="filters-row">
                     <select class="form-control" id="filter-type"><option value="all">Todos</option><option value="expense">↓ Gastos</option><option value="income">↑ Ingresos</option></select>
                     <select class="form-control" id="filter-category"><option value="all">Todas</option></select>
-                    <select class="form-control" id="filter-user"><option value="all">Todos</option><option value="nadia">Nadia</option><option value="elias">Elias</option></select>
                     <input type="month" class="form-control" id="filter-date">
                 </div>
                 <div id="transactions-list"></div>

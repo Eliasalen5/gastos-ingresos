@@ -42,7 +42,7 @@ const Transactions = {
             }
         });
 
-        ['filter-type', 'filter-category', 'filter-user', 'filter-date'].forEach(id => {
+        ['filter-type', 'filter-category', 'filter-date'].forEach(id => {
             document.getElementById(id)?.addEventListener('change', () => this.renderList());
         });
     },
@@ -280,12 +280,11 @@ const Transactions = {
     getFiltered() {
         const type = document.getElementById('filter-type')?.value || 'all';
         const cat = document.getElementById('filter-category')?.value || 'all';
-        const user = document.getElementById('filter-user')?.value || 'all';
         const date = document.getElementById('filter-date')?.value || '';
         return this.list.filter(tx => {
+            if (tx.userId !== Auth.currentUser) return false;
             if (type !== 'all' && tx.type !== type) return false;
             if (cat !== 'all' && tx.categoryId !== cat) return false;
-            if (user !== 'all' && tx.userId !== user) return false;
             if (date && typeof tx.date === 'string' && !tx.date.startsWith(date)) return false;
             return true;
         });
@@ -317,8 +316,6 @@ const Transactions = {
             const cat = Categories.getById(tx.categoryId);
             const catColor = cat ? cat.color : '#95A5A6';
             const catIcon = cat ? cat.icon : 'fa-tag';
-            const userName = tx.userId === 'nadia' ? 'Nadia' : 'Elias';
-            const userColor = tx.userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
             const paidBadge = tx.paid === false ? '<span class="pending-badge">Pendiente</span>' : '';
             const instBadge = tx.installments >= 1 ? ` <span class="inst-badge">Cuota ${tx.installmentNum}/${tx.installments}</span>` : '';
             const receiptBtn = tx.receiptUrl
@@ -330,10 +327,7 @@ const Transactions = {
                     <div class="tx-icon" style="background:${catColor}"><i class="fas ${catIcon}"></i></div>
                     <div class="tx-info">
                         <div class="tx-desc">${Utils.esc(tx.description || (cat ? cat.name : ''))} ${paidBadge}${instBadge}</div>
-                        <div class="tx-meta">
-                            <span class="user-dot" style="background:${userColor}"></span> ${userName}
-                            · ${Utils.esc(cat ? cat.name : '')}
-                        </div>
+                        <div class="tx-meta">${Utils.esc(cat ? cat.name : '')}</div>
                     </div>
                     <div class="tx-right">
                         <div class="tx-value ${tx.type}">${tx.type === 'income' ? '+' : '-'}${Utils.formatMoney(tx.amount)}</div>

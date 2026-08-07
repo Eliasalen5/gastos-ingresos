@@ -71,7 +71,7 @@ const App = {
         document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.page === page));
         document.querySelectorAll('.bottom-nav-item').forEach(i => i.classList.toggle('active', i.dataset.page === page));
 
-        const titles = { home: 'Home', gastos: 'Gastos', ingresos: 'Ingresos', ahorro: 'Ahorro', 'nuevo-gasto': 'Nuevo Gasto', pagos: 'Pagos', categorias: 'Categorías' };
+        const titles = { home: 'Home', gastos: 'Gastos', ingresos: 'Ingresos', ahorro: 'Ahorro', comparativa: 'Comparativa', 'nuevo-gasto': 'Nuevo Gasto', pagos: 'Pagos', categorias: 'Categorías' };
         document.getElementById('page-title').textContent = titles[page] || page;
         document.getElementById('sidebar')?.classList.remove('open');
         document.getElementById('sidebar-overlay')?.classList.remove('open');
@@ -84,6 +84,7 @@ const App = {
             case 'gastos': Transactions.renderList(); break;
             case 'ingresos': this.renderIngresos(); break;
             case 'ahorro': Ahorro.refresh(); break;
+            case 'comparativa': Dashboard.renderGrupal(); break;
             case 'nuevo-gasto':
                 if (!document.getElementById('tx-id').value) Transactions.resetForm();
                 break;
@@ -95,15 +96,13 @@ const App = {
     renderIngresos() {
         const el = document.getElementById('ingresos-list');
         if (!el) return;
-        const txs = Transactions.list.filter(tx => tx.type === 'income');
+        const txs = Transactions.list.filter(tx => tx.type === 'income' && tx.userId === Auth.currentUser);
         if (txs.length === 0) {
             el.innerHTML = '<div class="empty"><i class="fas fa-arrow-down"></i><p>Sin ingresos</p></div>';
             return;
         }
         el.innerHTML = txs.map(tx => {
             const cat = Categories.getById(tx.categoryId);
-            const userName = tx.userId === 'nadia' ? 'Nadia' : 'Elias';
-            const userColor = tx.userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
             const receiptBtn = tx.receiptUrl
                 ? `<button class="icon-btn receipt-btn" data-receipt="${Utils.esc(tx.receiptUrl)}" title="Ver comprobante"><i class="fas fa-image"></i></button>`
                 : '';
@@ -112,7 +111,7 @@ const App = {
                     <div class="tx-icon" style="background:${cat ? cat.color : '#95A5A6'}"><i class="fas ${cat ? cat.icon : 'fa-tag'}"></i></div>
                     <div class="tx-info">
                         <div class="tx-desc">${Utils.esc(tx.description || (cat ? cat.name : ''))}</div>
-                        <div class="tx-meta"><span class="user-dot" style="background:${userColor}"></span> ${userName} · ${Utils.formatDate(tx.date)}</div>
+                        <div class="tx-meta">${Utils.formatDate(tx.date)}</div>
                     </div>
                     <div class="tx-right">
                         <div class="tx-value income">+${Utils.formatMoney(tx.amount)}</div>
@@ -152,7 +151,7 @@ const App = {
         const summaryEl = document.getElementById('pagos-summary');
         if (!el) return;
 
-        const pending = Transactions.getUnpaidExpenses().filter(tx => tx.installments >= 1);
+        const pending = Transactions.getUnpaidExpenses().filter(tx => tx.installments >= 1 && tx.userId === Auth.currentUser);
         const total = pending.reduce((s, tx) => s + tx.amount, 0);
 
         summaryEl.innerHTML = pending.length === 0

@@ -249,26 +249,28 @@ const Notifications = {
     renderWidget() {
         const container = document.getElementById('next-payroll');
         if (!container) return;
-        container.innerHTML = ['nadia', 'elias'].map(userId => {
-            const date = this.getNextPayDate(userId);
-            if (!date) return '';
-            const name = userId === 'nadia' ? 'Nadia' : 'Elias';
-            const color = userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
-            const days = Utils.daysUntil(date);
-            const dateStr = date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
-            const daysText = days === 0 ? '¡Hoy!' : days === 1 ? '¡Mañana!' : `En ${days} días`;
-            return `
-                <div class="payroll-row">
-                    <div class="payroll-avatar" style="background:${color}">${name[0]}</div>
-                    <div class="payroll-info">
-                        <div class="payroll-name">${name}</div>
-                        <div class="payroll-date">${dateStr} · ${daysText}</div>
-                    </div>
-                    <button class="btn btn-sm btn-primary" onclick="Notifications.openIncomeForm('${userId}')">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                </div>`;
-        }).join('');
+        const userId = Auth.currentUser;
+        const date = this.getNextPayDate(userId);
+        if (!date) {
+            container.innerHTML = '<p class="muted">Sin próximo cobro</p>';
+            return;
+        }
+        const name = userId === 'nadia' ? 'Nadia' : 'Elias';
+        const color = userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
+        const days = Utils.daysUntil(date);
+        const dateStr = date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+        const daysText = days === 0 ? '¡Hoy!' : days === 1 ? '¡Mañana!' : `En ${days} días`;
+        container.innerHTML = `
+            <div class="payroll-row">
+                <div class="payroll-avatar" style="background:${color}">${name[0]}</div>
+                <div class="payroll-info">
+                    <div class="payroll-name">${name}</div>
+                    <div class="payroll-date">${dateStr} · ${daysText}</div>
+                </div>
+                <button class="btn btn-sm btn-primary" onclick="Notifications.openIncomeForm('${userId}')">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>`;
     },
 
     openIncomeForm(userId) {
