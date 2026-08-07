@@ -30,17 +30,6 @@ const Dashboard = {
         if (this.charts[key]) { this.charts[key].destroy(); this.charts[key] = null; }
     },
 
-    lighten(hex, t) {
-        let h = (hex || '#95A5A6').replace('#', '');
-        if (h.length === 3) h = h.split('').map(ch => ch + ch).join('');
-        const n = parseInt(h, 16);
-        if (isNaN(n)) return hex || '#95A5A6';
-        const r = Math.round(((n >> 16) & 255) + (255 - ((n >> 16) & 255)) * t);
-        const g = Math.round(((n >> 8) & 255) + (255 - ((n >> 8) & 255)) * t);
-        const b = Math.round((n & 255) + (255 - (n & 255)) * t);
-        return `rgb(${r},${g},${b})`;
-    },
-
     _individualMonth() {
         const el = document.getElementById('individual-month');
         return el ? el.value : Utils.currentYearMonth();
@@ -180,7 +169,7 @@ const Dashboard = {
         document.getElementById('grupal-expense').textContent = Utils.formatMoney(expense);
 
         this.renderComparison(txs);
-        this.renderCategoryGrupalChart(txs);
+        this.renderCategoryPerUser(txs);
         this.renderUserBars(txs, prefix);
     },
 
@@ -206,91 +195,50 @@ const Dashboard = {
         });
     },
 
-    renderCategoryGrupalChart(txs) {
-        const canvas = document.getElementById('grupal-category-chart');
-        if (!canvas) return;
-        this.destroyChart('grupalCat');
+    renderCategoryPerUser(txs) {
+        const users = ['nadia', 'elias'];
+        users.forEach(userId => {
+            const canvas = document.getElementById(`grupal-category-${userId}`);
+            if (!canvas) return;
+            const key = `grupalCat_${userId}`;
+            this.destroyChart(key);
 
-        const paid = txs.filter(tx => tx.type === 'expense' && tx.paid !== false);
-        const map = {};
-        paid.forEach(tx => {
-            const cat = Categories.getById(tx.categoryId);
-            const k = cat ? cat.id : 'otros';
-            map[k] = map[k] || { name: cat ? cat.name : 'Otros', color: cat ? cat.color : '#95A5A6', nadia: 0, elias: 0, total: 0 };
-            if (tx.userId === 'nadia') map[k].nadia += tx.amount;
-            else map[k].elias += tx.amount;
-            map[k].total += tx.amount;
-        });
-
-        const entries = Object.values(map);
-        this._catGrupalData = entries;
-
-        const data = [];
-        const colors = [];
-        const slices = [];
-        entries.forEach(c => {
-            data.push(c.nadia, c.elias);
-            colors.push(c.color, this.lighten(c.color, 0.5));
-            slices.push({ cat: c.name, user: 'Nadia', amount: c.nadia });
-            slices.push({ cat: c.name, user: 'Elias', amount: c.elias });
-        });
-
-        if (data.length === 0 || typeof Chart === 'undefined') {
-            canvas.style.display = data.length === 0 ? 'none' : 'block';
-            return;
-        }
-        canvas.style.display = 'block';
-        try {
-            this.charts.grupalCat = new Chart(canvas, {
-                type: 'doughnut',
-                data: { labels: slices.map(s => `${s.cat} · ${s.user}`), datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    onClick: (e, el) => {
-                        if (el.length > 0) this.showCatGrupalDetail();
-                    },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => {
-                                    const s = slices[ctx.dataIndex];
-                                    const c = entries.find(x => x.name === s.cat);
-                                    const total = c ? c.total : 0;
-                                    return `${s.cat} · ${s.user}: ${Utils.formatMoney(s.amount)} (Total: ${Utils.formatMoney(total)})`;
-                                }
-                            }
-                        }
-                    }
-                }
+            const paid = txs.filter(tx => tx.type === 'expense' && tx.paid !== false && tx.userId === userId);
+            const map = {};
+            paid.forEach(tx => {
+                const cat = Categories.getById(tx.categoryId);
+                const k = cat ? cat.id : 'otros';
+                map[k] = map[k] || { name: cat ? cat.name : 'Otros', color: cat ? cat.color : '#95A5A6', total: 0 };
+                map[k].total += tx.amount;
             });
-        } catch (e) {
-            console.error('Chart error:', e);
-        }
-    },
+            const entries = Object.values(map);
+            const labels = entries.map(c => c.name);
+            const data = entries.map(c => c.total);
+            const colors = entries.map(c => c.color);
 
-    showCatGrupalDetail() {
-        const modal = document.getElementById('cat-detail-modal');
-        const body = document.getElementById('cat-detail-body');
-        if (!modal || !body || !this._catGrupalData) return;
-        const total = this._catGrupalData.reduce((s, c) => s + c.total, 0);
-        body.innerHTML = `
-            <div class="cat-detail-head">
-                <span class="cat-detail-name">Categoría</span>
-                <span class="cat-detail-amount" style="color:var(--nadia)">Nadia</span>
-                <span class="cat-detail-amount" style="color:var(--elias)">Elias</span>
-                <span class="cat-detail-amount">Total</span>
-            </div>` +
-            this._catGrupalData.map(c => `
-                <div class="cat-detail-row">
-                    <div class="cat-detail-color" style="background:${c.color}"></div>
-                    <span class="cat-detail-name">${Utils.esc(c.name)}</span>
-                    <span class="cat-detail-amount">${Utils.formatMoney(c.nadia)}</span>
-                    <span class="cat-detail-amount">${Utils.formatMoney(c.elias)}</span>
-                    <span class="cat-detail-amount fw700">${Utils.formatMoney(c.total)}</span>
-                </div>`).join('');
-        modal.classList.remove('hidden');
+            if (data.length === 0 || typeof Chart === 'undefined') {
+                canvas.style.display = data.length === 0 ? 'none' : 'block';
+                return;
+            }
+            canvas.style.display = 'block';
+            try {
+                this.charts[key] = new Chart(canvas, {
+                    type: 'doughnut',
+                    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        onClick: () => {
+                            this._catData = entries;
+                            this.showCatDetail();
+                        },
+                        plugins: { legend: { position: 'bottom', labels: { padding: 10, font: { size: 11 } } } }
+                    }
+                });
+            } catch (e) {
+                console.error('Chart error:', e);
+            }
+        });
     },
 
     renderUserBars(txs, prefix) {

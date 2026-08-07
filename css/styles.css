@@ -763,7 +763,7 @@ input[type="color"] { width: 40px; height: 36px; border: none; cursor: pointer; 
 }
 .modal-header h3 { font-size: 1.1rem; }
 
-#category-chart, #grupal-comparison-chart, #grupal-category-chart {
+#category-chart, #grupal-comparison-chart, #grupal-category-nadia, #grupal-category-elias {
     max-height: 280px;
     min-height: 200px;
     width: 100% !important;
