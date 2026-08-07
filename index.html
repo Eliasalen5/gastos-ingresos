@@ -239,11 +239,12 @@
                             <div class="mov-type-group">
                                 <button type="button" class="mov-type-btn active" data-ahorro-type="deposito"><i class="fas fa-arrow-up"></i> Depositar</button>
                                 <button type="button" class="mov-type-btn" data-ahorro-type="retiro"><i class="fas fa-arrow-down"></i> Retirar</button>
+                                <button type="button" class="mov-type-btn" data-ahorro-type="cambio"><i class="fas fa-exchange-alt"></i> Cambiar</button>
                             </div>
                         </div>
 
                         <div class="form-row">
-                            <div class="form-group">
+                            <div class="form-group" id="ahorro-currency-group">
                                 <label>Moneda</label>
                                 <select class="form-control" id="ahorro-currency">
                                     <option value="ARS">Pesos (ARS)</option>
@@ -261,7 +262,7 @@
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Monto</label>
+                                <label id="ahorro-amount-label">Monto</label>
                                 <input type="number" step="0.01" class="form-control" id="ahorro-amount" placeholder="0.00" required>
                             </div>
                             <div class="form-group" id="ahorro-rate-group">

@@ -95,18 +95,23 @@ const Ahorro = {
     getMonthSaved(userId, prefix) {
         return this.list
             .filter(m => m.userId === userId && typeof m.date === 'string' && m.date.startsWith(prefix))
-            .reduce((s, m) => s + (m.type === 'deposito' ? 1 : -1) * (m.amountARS || 0), 0);
+            .reduce((s, m) => s + (m.type === 'cambio' ? 0 : (m.type === 'deposito' ? 1 : -1)) * (m.amountARS || 0), 0);
     },
 
     getMonthSavedAll(prefix) {
         return this.list
             .filter(m => typeof m.date === 'string' && m.date.startsWith(prefix))
-            .reduce((s, m) => s + (m.type === 'deposito' ? 1 : -1) * (m.amountARS || 0), 0);
+            .reduce((s, m) => s + (m.type === 'cambio' ? 0 : (m.type === 'deposito' ? 1 : -1)) * (m.amountARS || 0), 0);
     },
 
     getTotals() {
         let ars = 0, usd = 0;
         this.list.forEach(m => {
+            if (m.type === 'cambio') {
+                ars -= (m.amountARS || 0);
+                usd += (m.amount || 0);
+                return;
+            }
             const sign = m.type === 'deposito' ? 1 : -1;
             if (m.currency === 'USD') usd += sign * (m.amount || 0);
             else ars += sign * (m.amount || 0);
@@ -230,14 +235,16 @@ const Ahorro = {
 
         const sorted = [...this.list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
         el.innerHTML = sorted.map(m => {
+            const isCambio = m.type === 'cambio';
             const isDep = m.type === 'deposito';
             const user = m.userId === 'nadia' ? 'Nadia' : 'Elias';
             const ucolor = m.userId === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
-            const color = isDep ? 'var(--success)' : 'var(--error)';
-            const icon = isDep ? 'fa-arrow-up' : 'fa-arrow-down';
-            const label = m.description || (isDep ? 'Depósito' : 'Retiro');
+            const color = isCambio ? 'var(--primary)' : (isDep ? 'var(--success)' : 'var(--error)');
+            const icon = isCambio ? 'fa-exchange-alt' : (isDep ? 'fa-arrow-up' : 'fa-arrow-down');
+            const label = m.description || (isCambio ? 'Cambio de pesos' : (isDep ? 'Depósito' : 'Retiro'));
             const amount = m.currency === 'USD' ? this.fmtUSD(m.amount) : Utils.formatMoney(m.amount);
-            const rateBadge = m.currency === 'USD' && m.rate ? `<span class="inst-badge">@ ${Utils.formatMoney(m.rate)}</span>` : '';
+            const rateBadge = m.rate ? `<span class="inst-badge">@ ${Utils.formatMoney(m.rate)}</span>` : '';
+            const signStr = (isDep || isCambio) ? '+' : '-';
 
             return `
                 <div class="tx-item">
@@ -247,7 +254,7 @@ const Ahorro = {
                         <div class="tx-meta"><span class="user-dot" style="background:${ucolor}"></span> ${user} · ${Utils.formatDate(m.date)} · ${m.currency}</div>
                     </div>
                     <div class="tx-right">
-                        <div class="tx-value" style="color:${color}">${isDep ? '+' : '-'}${amount}</div>
+                        <div class="tx-value" style="color:${color}">${signStr}${amount}</div>
                     </div>
                     <div class="tx-actions">
                         <button class="icon-btn" data-edit="${m.id}"><i class="fas fa-pen"></i></button>
@@ -275,21 +282,33 @@ const Ahorro = {
         const amount = parseFloat(document.getElementById('ahorro-amount').value);
         const date = document.getElementById('ahorro-date').value;
         const description = document.getElementById('ahorro-description').value.trim();
-        const rate = currency === 'USD'
-            ? (parseFloat(document.getElementById('ahorro-rate').value) || (this.dolar.blue ? this.dolar.blue.venta : 0))
-            : null;
 
         if (!amount || !date) {
             App.toast('Completá los campos', 'error');
             return;
         }
-        if (currency === 'USD' && (!rate || rate <= 0)) {
-            App.toast('Indicá el tipo de cambio del dólar', 'error');
-            return;
-        }
 
-        const amountARS = currency === 'USD' ? Math.round(amount * rate * 100) / 100 : Math.round(amount * 100) / 100;
-        const data = { userId, type, currency, amount, amountARS, rate, date, description, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+        let data;
+        if (type === 'cambio') {
+            const rate = parseFloat(document.getElementById('ahorro-rate').value) || (this.dolar.blue ? this.dolar.blue.venta : 0);
+            if (amount <= 0 || !rate || rate <= 0) {
+                App.toast('Indicá los pesos a cambiar y el tipo de cambio', 'error');
+                return;
+            }
+            const ars = Math.round(amount * 100) / 100;
+            const usd = Math.round(ars / rate * 100) / 100;
+            data = { userId, type, currency: 'USD', amount: usd, amountARS: ars, rate, date, description, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+        } else {
+            const rate = currency === 'USD'
+                ? (parseFloat(document.getElementById('ahorro-rate').value) || (this.dolar.blue ? this.dolar.blue.venta : 0))
+                : null;
+            if (currency === 'USD' && (!rate || rate <= 0)) {
+                App.toast('Indicá el tipo de cambio del dólar', 'error');
+                return;
+            }
+            const amountARS = currency === 'USD' ? Math.round(amount * rate * 100) / 100 : Math.round(amount * 100) / 100;
+            data = { userId, type, currency, amount, amountARS, rate, date, description, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+        }
 
         try {
             if (id) {
@@ -324,9 +343,9 @@ const Ahorro = {
         document.getElementById('ahorro-id').value = m.id;
         document.getElementById('ahorro-form-title').textContent = 'Editar movimiento';
         this.setType(m.type || 'deposito');
-        document.getElementById('ahorro-currency').value = m.currency || 'ARS';
+        document.getElementById('ahorro-currency').value = m.type === 'cambio' ? 'ARS' : (m.currency || 'ARS');
         document.getElementById('ahorro-user').value = m.userId || 'nadia';
-        document.getElementById('ahorro-amount').value = m.amount;
+        document.getElementById('ahorro-amount').value = m.type === 'cambio' ? (m.amountARS || m.amount || '') : m.amount;
         document.getElementById('ahorro-rate').value = m.rate || (this.dolar.blue ? this.dolar.blue.venta : '');
         document.getElementById('ahorro-date').value = m.date;
         document.getElementById('ahorro-description').value = m.description || '';
@@ -348,17 +367,28 @@ const Ahorro = {
 
     setType(type) {
         document.querySelectorAll('.mov-type-btn').forEach(b => b.classList.toggle('active', b.dataset.ahorroType === type));
+        const currencyGroup = document.getElementById('ahorro-currency-group');
+        const amountLabel = document.getElementById('ahorro-amount-label');
+        if (currencyGroup) currencyGroup.classList.toggle('hidden', type === 'cambio');
+        if (amountLabel) amountLabel.textContent = type === 'cambio' ? 'Pesos a cambiar (ARS)' : 'Monto';
+        if (type === 'cambio') document.getElementById('ahorro-currency').value = 'ARS';
+        this.updatePreview();
     },
 
     updatePreview() {
         const el = document.getElementById('ahorro-preview');
         const rateGroup = document.getElementById('ahorro-rate-group');
+        const type = document.querySelector('.mov-type-btn.active')?.dataset.ahorroType || 'deposito';
         const currency = document.getElementById('ahorro-currency').value;
-        if (rateGroup) rateGroup.classList.toggle('hidden', currency !== 'USD');
+        if (rateGroup) rateGroup.classList.toggle('hidden', currency !== 'USD' && type !== 'cambio');
 
         const amount = parseFloat(document.getElementById('ahorro-amount').value) || 0;
         const rate = parseFloat(document.getElementById('ahorro-rate').value) || (this.dolar.blue ? this.dolar.blue.venta : 0);
-        if (currency === 'USD' && amount > 0 && rate > 0) {
+        if (type === 'cambio') {
+            el.textContent = (amount > 0 && rate > 0)
+                ? `≈ ${this.fmtUSD(Math.round(amount / rate * 100) / 100)}`
+                : '';
+        } else if (currency === 'USD' && amount > 0 && rate > 0) {
             el.textContent = `≈ ${Utils.formatMoney(Math.round(amount * rate * 100) / 100)} en pesos`;
         } else {
             el.textContent = '';

@@ -1149,6 +1149,7 @@ canvas { max-height: 250px; }
 }
 .mov-type-btn[data-ahorro-type="deposito"].active { border-color: var(--success); color: var(--success); background: rgba(46,204,113,0.1); }
 .mov-type-btn[data-ahorro-type="retiro"].active { border-color: var(--error); color: var(--error); background: rgba(231,76,60,0.1); }
+.mov-type-btn[data-ahorro-type="cambio"].active { border-color: var(--primary); color: var(--primary); background: rgba(108,99,255,0.1); }
 .mov-type-btn:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
