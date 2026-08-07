@@ -304,40 +304,80 @@ const Transactions = {
         return this.list.filter(tx => tx.type === 'expense' && tx.paid === false);
     },
 
+    _dayLabel(dateKey) {
+        if (!dateKey || dateKey === 'sin-fecha') return 'Sin fecha';
+        const today = Utils.todayStr();
+        if (dateKey === today) return 'Hoy';
+        const y = new Date();
+        y.setDate(y.getDate() - 1);
+        const yesterday = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`;
+        if (dateKey === yesterday) return 'Ayer';
+        const d = new Date(dateKey + 'T12:00:00');
+        return d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    },
+
+    _txRow(tx) {
+        const cat = Categories.getById(tx.categoryId);
+        const catColor = cat ? cat.color : '#95A5A6';
+        const catIcon = cat ? cat.icon : 'fa-tag';
+        const paidBadge = tx.paid === false ? '<span class="pending-badge">Pendiente</span>' : '';
+        const instBadge = tx.installments >= 1 ? ` <span class="inst-badge">Cuota ${tx.installmentNum}/${tx.installments}</span>` : '';
+        const receiptBtn = tx.receiptUrl
+            ? `<button class="icon-btn receipt-btn" data-receipt="${Utils.esc(tx.receiptUrl)}" title="Ver comprobante"><i class="fas fa-image"></i></button>`
+            : '';
+
+        return `
+            <div class="tx-item">
+                <div class="tx-icon" style="background:${catColor}"><i class="fas ${catIcon}"></i></div>
+                <div class="tx-info">
+                    <div class="tx-desc">${Utils.esc(tx.description || (cat ? cat.name : ''))} ${paidBadge}${instBadge}</div>
+                    <div class="tx-meta">${Utils.esc(cat ? cat.name : '')}</div>
+                </div>
+                <div class="tx-right">
+                    <div class="tx-value ${tx.type}">${tx.type === 'income' ? '+' : '-'}${Utils.formatMoney(tx.amount)}</div>
+                    <div class="tx-date">${Utils.formatDate(tx.date)}</div>
+                </div>
+                <div class="tx-actions">
+                    ${receiptBtn}
+                    <button class="icon-btn" data-edit="${tx.id}"><i class="fas fa-pen"></i></button>
+                    <button class="icon-btn danger" data-del="${tx.id}"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>`;
+    },
+
     renderList() {
         const container = document.getElementById('transactions-list');
         if (!container) return;
-        const filtered = this.getFiltered();
+        const filtered = this.getFiltered().slice().sort((a, b) => {
+            const d = (b.date || '').localeCompare(a.date || '');
+            if (d !== 0) return d;
+            const aTime = (a.createdAt && a.createdAt.seconds) || 0;
+            const bTime = (b.createdAt && b.createdAt.seconds) || 0;
+            if (bTime !== aTime) return bTime - aTime;
+            return (a.installmentNum || 0) - (b.installmentNum || 0);
+        });
         if (filtered.length === 0) {
             container.innerHTML = '<div class="empty"><i class="fas fa-exchange-alt"></i><p>Sin transacciones</p></div>';
             return;
         }
-        container.innerHTML = filtered.map(tx => {
-            const cat = Categories.getById(tx.categoryId);
-            const catColor = cat ? cat.color : '#95A5A6';
-            const catIcon = cat ? cat.icon : 'fa-tag';
-            const paidBadge = tx.paid === false ? '<span class="pending-badge">Pendiente</span>' : '';
-            const instBadge = tx.installments >= 1 ? ` <span class="inst-badge">Cuota ${tx.installmentNum}/${tx.installments}</span>` : '';
-            const receiptBtn = tx.receiptUrl
-                ? `<button class="icon-btn receipt-btn" data-receipt="${Utils.esc(tx.receiptUrl)}" title="Ver comprobante"><i class="fas fa-image"></i></button>`
-                : '';
 
+        const groups = {};
+        filtered.forEach(tx => {
+            const k = tx.date || 'sin-fecha';
+            (groups[k] = groups[k] || []).push(tx);
+        });
+
+        container.innerHTML = Object.keys(groups).map(dateKey => {
+            const txs = groups[dateKey];
+            const total = txs.reduce((s, tx) => s + (tx.type === 'income' ? tx.amount : -tx.amount), 0);
+            const totalClass = total > 0 ? 'tx-day-total-pos' : (total < 0 ? 'tx-day-total-neg' : '');
             return `
-                <div class="tx-item">
-                    <div class="tx-icon" style="background:${catColor}"><i class="fas ${catIcon}"></i></div>
-                    <div class="tx-info">
-                        <div class="tx-desc">${Utils.esc(tx.description || (cat ? cat.name : ''))} ${paidBadge}${instBadge}</div>
-                        <div class="tx-meta">${Utils.esc(cat ? cat.name : '')}</div>
+                <div class="tx-day-group">
+                    <div class="tx-day-header">
+                        <span>${this._dayLabel(dateKey)}</span>
+                        <span class="${totalClass}">${total > 0 ? '+' : ''}${Utils.formatMoney(total)}</span>
                     </div>
-                    <div class="tx-right">
-                        <div class="tx-value ${tx.type}">${tx.type === 'income' ? '+' : '-'}${Utils.formatMoney(tx.amount)}</div>
-                        <div class="tx-date">${Utils.formatDate(tx.date)}</div>
-                    </div>
-                    <div class="tx-actions">
-                        ${receiptBtn}
-                        <button class="icon-btn" data-edit="${tx.id}"><i class="fas fa-pen"></i></button>
-                        <button class="icon-btn danger" data-del="${tx.id}"><i class="fas fa-trash"></i></button>
-                    </div>
+                    ${txs.map(tx => this._txRow(tx)).join('')}
                 </div>`;
         }).join('');
 

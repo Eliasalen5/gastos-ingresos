@@ -770,6 +770,23 @@ input[type="color"] { width: 40px; height: 36px; border: none; cursor: pointer; 
     display: block;
 }
 
+.tx-day-group { margin-bottom: 18px; }
+.tx-day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: capitalize;
+    letter-spacing: 0.3px;
+    color: var(--muted);
+    margin: 4px 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+}
+.tx-day-total-pos { color: var(--success); }
+.tx-day-total-neg { color: var(--error); }
+
 .cat-detail-row {
     display: flex;
     align-items: center;
