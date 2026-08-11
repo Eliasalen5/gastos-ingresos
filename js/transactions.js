@@ -31,6 +31,7 @@ const Transactions = {
 
         document.getElementById('tx-installments')?.addEventListener('change', () => this.updatePreview());
         document.getElementById('tx-amount')?.addEventListener('input', () => this.updatePreview());
+        document.getElementById('tx-category')?.addEventListener('change', () => this.updateDescriptionRequired());
 
         document.getElementById('tx-receipt')?.addEventListener('change', (e) => {
             const p = document.getElementById('receipt-preview');
@@ -51,6 +52,16 @@ const Transactions = {
         const type = document.querySelector('.type-btn.active')?.dataset.type;
         const sel = document.getElementById('tx-category');
         sel.innerHTML = Categories.renderSelects(type === 'income' ? 'income' : 'expense');
+        this.updateDescriptionRequired();
+    },
+
+    updateDescriptionRequired() {
+        const desc = document.getElementById('tx-description');
+        if (!desc) return;
+        const required = document.getElementById('tx-category').value === 'cat_otros_g';
+        desc.required = required;
+        desc.placeholder = required ? 'Obligatoria' : 'Opcional';
+        desc.closest('.form-group').classList.toggle('required', required);
     },
 
     updatePreview() {
@@ -89,6 +100,11 @@ const Transactions = {
 
         if (!amount || !categoryId || !date) {
             App.toast('Completá todos los campos', 'error');
+            return;
+        }
+
+        if (categoryId === 'cat_otros_g' && !description) {
+            App.toast('La descripción es obligatoria para Otros gastos', 'error');
             return;
         }
 
@@ -240,6 +256,7 @@ const Transactions = {
         document.querySelector(`.type-btn[data-type="${tx.type}"]`).classList.add('active');
         this.updateCategorySelect();
         document.getElementById('tx-category').value = tx.categoryId;
+        this.updateDescriptionRequired();
 
         document.getElementById('tx-amount').value = tx.amount;
         document.getElementById('tx-description').value = tx.description || '';

@@ -547,6 +547,13 @@ body {
 
 /* ── Form ── */
 .form-group { margin-bottom: 16px; min-width: 0; overflow: hidden; }
+.form-group.required label::after {
+    content: ' *';
+    color: var(--error, #E74C3C);
+}
+.form-group.required .form-control {
+    border-color: var(--error, #E74C3C);
+}
 .form-group label {
     display: block;
     font-size: 0.8rem;
