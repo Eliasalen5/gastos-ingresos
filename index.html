@@ -56,7 +56,8 @@
             <div class="nav-item active" data-page="home"><i class="fas fa-home"></i> Home</div>
             <div class="nav-item nav-expense" data-page="gastos"><i class="fas fa-arrow-down"></i> Gastos</div>
             <div class="nav-item nav-income" data-page="ingresos"><i class="fas fa-arrow-up"></i> Ingresos</div>
-            <div class="nav-item nav-ahorro" data-page="ahorro"><i class="fas fa-piggy-bank"></i> Ahorro</div>
+            <div class="nav-item nav-ahorro" data-page="ahorro"><i class="fas fa-piggy-bank"></i> Ahorro Dólar</div>
+            <div class="nav-item nav-inversiones" data-page="inversiones"><i class="fas fa-chart-line"></i> Inversiones</div>
             <div class="nav-item nav-comparativa" data-page="comparativa"><i class="fas fa-chart-pie"></i> Comparativa</div>
             <div class="nav-divider"></div>
             <div class="nav-item" data-page="nuevo-gasto"><i class="fas fa-plus-circle"></i> Nuevo gasto</div>
@@ -297,6 +298,101 @@
                 </div>
             </div>
 
+            <!-- ══════ INVERSIONES ══════ -->
+            <div class="page" id="page-inversiones">
+                <div class="card">
+                    <div class="card-title">Distribución mensual (30% del salario)</div>
+                    <div style="margin-bottom:16px">
+                        <input type="month" class="form-control" id="inversiones-month" style="max-width:220px">
+                    </div>
+                    <div id="inv-summary"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Objetivos</div>
+                    <div id="inv-objetivos"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Total invertido</div>
+                    <div class="stats-row" id="inv-totals"></div>
+                </div>
+
+                <div class="card">
+                    <h3 id="inv-form-title" style="margin-bottom:16px">Registrar movimiento</h3>
+                    <form id="inv-form">
+                        <input type="hidden" id="inv-id">
+
+                        <div class="form-group">
+                            <label>Tipo</label>
+                            <div class="mov-type-group">
+                                <button type="button" class="inv-type-btn active" data-inv-type="aporte"><i class="fas fa-arrow-up"></i> Aportar</button>
+                                <button type="button" class="inv-type-btn" data-inv-type="retiro"><i class="fas fa-arrow-down"></i> Retirar</button>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Objetivo</label>
+                                <select class="form-control" id="inv-objetivo"></select>
+                            </div>
+                            <div class="form-group">
+                                <label>Usuario</label>
+                                <select class="form-control" id="inv-user">
+                                    <option value="nadia">Nadia</option>
+                                    <option value="elias">Elias</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group" id="inv-currency-group">
+                                <label>Moneda</label>
+                                <select class="form-control" id="inv-currency">
+                                    <option value="ARS">Pesos (ARS)</option>
+                                    <option value="USD">Dólares (USD)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Monto</label>
+                                <input type="number" step="0.01" class="form-control" id="inv-amount" placeholder="0.00" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group hidden" id="inv-rate-group">
+                                <label>Tipo de cambio (USD)</label>
+                                <input type="number" step="0.01" class="form-control" id="inv-rate" placeholder="0.00">
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha</label>
+                                <input type="date" class="form-control" id="inv-date" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Descripción</label>
+                                <input type="text" class="form-control" id="inv-description" placeholder="Opcional">
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="inv-descontar-group">
+                            <label class="checkbox-label"><input type="checkbox" id="inv-descontar"> Descontar de Ahorro Dólar</label>
+                        </div>
+
+                        <div class="ahorro-preview" id="inv-preview"></div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar</button>
+                            <button type="button" class="btn btn-ghost" id="inv-cancel"><i class="fas fa-times"></i></button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Historial</div>
+                    <div id="inv-history"></div>
+                </div>
+            </div>
+
             <!-- ══════ CATEGORÍAS ══════ -->
             <div class="page" id="page-categorias">
                 <button class="btn btn-primary" id="add-category-btn" style="margin-bottom:16px"><i class="fas fa-plus"></i> Nueva categoría</button>
@@ -311,7 +407,8 @@
         <div class="bottom-nav-item active" data-page="home"><i class="fas fa-home"></i><span>Inicio</span></div>
         <div class="bottom-nav-item" data-page="gastos"><i class="fas fa-arrow-down"></i><span>Gastos</span></div>
         <div class="bottom-nav-item" data-page="ingresos"><i class="fas fa-arrow-up"></i><span>Ingresos</span></div>
-        <div class="bottom-nav-item" data-page="ahorro"><i class="fas fa-piggy-bank"></i><span>Ahorro</span></div>
+        <div class="bottom-nav-item" data-page="ahorro"><i class="fas fa-piggy-bank"></i><span>Ahorro Dólar</span></div>
+        <div class="bottom-nav-item" data-page="inversiones"><i class="fas fa-chart-line"></i><span>Inversiones</span></div>
         <div class="bottom-nav-item" data-page="nuevo-gasto"><i class="fas fa-plus-circle"></i><span>Nuevo</span></div>
         <div class="bottom-nav-item" data-page="pagos"><i class="fas fa-credit-card"></i><span>Pagos</span></div>
         <div class="bottom-nav-item" data-page="categorias"><i class="fas fa-th"></i><span>Cat.</span></div>
@@ -368,6 +465,7 @@
 <script src="js/storage.js"></script>
 <script src="js/transactions.js"></script>
 <script src="js/ahorro.js"></script>
+<script src="js/inversiones.js"></script>
 <script src="js/notifications.js"></script>
 <script src="js/dashboard.js"></script>
 <script src="js/app.js"></script>

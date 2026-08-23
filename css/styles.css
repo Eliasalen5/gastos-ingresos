@@ -1223,3 +1223,24 @@ canvas { max-height: 250px; }
     font-weight: 700;
 }
 .cat-detail-total span:last-child { color: var(--error); }
+
+.inv-target .progress-bar { margin-top: 10px; }
+.inv-bar { position: relative; }
+.inv-bar-marker {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background: var(--text);
+    opacity: 0.55;
+    border-radius: 1px;
+}
+.inv-pct-edit { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; }
+.inv-pct-edit:hover { color: var(--text); }
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.88rem;
+}
