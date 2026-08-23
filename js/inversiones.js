@@ -43,10 +43,6 @@ const Inversiones = {
         document.getElementById('inv-cancel').addEventListener('click', () => this.resetForm());
         document.getElementById('inversiones-month')?.addEventListener('change', () => this.render());
 
-        document.querySelectorAll('.inv-type-btn').forEach(btn => {
-            btn.addEventListener('click', () => this.setType(btn.dataset.invType));
-        });
-
         document.getElementById('inv-currency')?.addEventListener('change', () => this.updatePreview());
         document.getElementById('inv-amount')?.addEventListener('input', () => this.updatePreview());
         document.getElementById('inv-rate')?.addEventListener('input', () => this.updatePreview());
@@ -241,6 +237,10 @@ const Inversiones = {
             if (st.estado === 'bloqueado') statusHtml = `<div class="inv-lock locked"><i class="fas fa-lock"></i> Disponible desde ${Utils.formatDate(st.fecha)}</div>`;
             else if (st.estado === 'ventana') statusHtml = `<div class="inv-lock window"><i class="fas fa-hourglass-half"></i> Próxima ventana de retiro: ${Utils.formatDate(st.fecha)}</div>`;
             else statusHtml = `<div class="inv-lock free"><i class="fas fa-lock-open"></i> Retiros libres</div>`;
+            const retiroLocked = st.estado !== 'libre';
+            const retiroTip = st.estado === 'bloqueado'
+                ? `Disponible desde ${Utils.formatDate(st.fecha)}`
+                : `Próxima ventana de retiro: ${Utils.formatDate(st.fecha)}`;
             return `
                 <div class="ahorro-target inv-target" style="border-left-color:${o.color}">
                     <div class="target-header">
@@ -258,7 +258,7 @@ const Inversiones = {
                     </div>
                     <div class="target-footer">
                         <button class="btn btn-sm btn-primary" data-aporte="${o.id}"><i class="fas fa-plus"></i> Aportar</button>
-                        <button class="btn btn-sm btn-ghost" data-retiro="${o.id}"><i class="fas fa-minus-circle"></i> Retirar</button>
+                        <button class="btn btn-sm btn-ghost" data-retiro="${o.id}"${retiroLocked ? ` disabled title="${Utils.esc(retiroTip)}"` : ''}><i class="fas fa-minus-circle"></i> Retirar</button>
                     </div>
                 </div>`;
         }).join('');
@@ -343,11 +343,13 @@ const Inversiones = {
     },
 
     setType(type) {
-        document.querySelectorAll('.inv-type-btn').forEach(b => b.classList.toggle('active', b.dataset.invType === type));
+        this._formType = type === 'retiro' ? 'retiro' : 'aporte';
         const descontarGroup = document.getElementById('inv-descontar-group');
-        const currencyGroup = document.getElementById('inv-currency-group');
-        if (descontarGroup) descontarGroup.classList.toggle('hidden', type === 'retiro');
-        if (currencyGroup) currencyGroup.classList.toggle('hidden', false);
+        if (descontarGroup) descontarGroup.classList.toggle('hidden', this._formType === 'retiro');
+        const title = document.getElementById('inv-form-title');
+        if (title && !document.getElementById('inv-id').value) {
+            title.textContent = this._formType === 'retiro' ? 'Registrar retiro' : 'Registrar movimiento';
+        }
         this.updatePreview();
     },
 
@@ -361,7 +363,6 @@ const Inversiones = {
     updatePreview() {
         const el = document.getElementById('inv-preview');
         const rateGroup = document.getElementById('inv-rate-group');
-        const type = document.querySelector('.inv-type-btn.active')?.dataset.invType || 'aporte';
         const currency = document.getElementById('inv-currency').value;
         if (rateGroup) rateGroup.classList.toggle('hidden', currency !== 'USD');
         this.updateDescontarLabel();
@@ -414,7 +415,7 @@ const Inversiones = {
 
     async save() {
         const id = document.getElementById('inv-id').value;
-        const type = document.querySelector('.inv-type-btn.active')?.dataset.invType || 'aporte';
+        const type = this._formType || 'aporte';
         const objetivoId = document.getElementById('inv-objetivo').value;
         const userId = document.getElementById('inv-user').value;
         const currency = document.getElementById('inv-currency').value;

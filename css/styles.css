@@ -496,6 +496,7 @@ body {
 .btn-ghost { background: none; border: 1px solid var(--border); color: var(--text); }
 .btn-ghost:hover { background: var(--surface2); }
 .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .btn-block { width: 100%; }
 .icon-btn {
     background: none;
