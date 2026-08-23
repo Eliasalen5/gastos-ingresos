@@ -148,6 +148,7 @@ const Categories = {
         const val = sel.value;
         sel.innerHTML = '<option value="all">Todas</option>' + this.renderSelects();
         sel.value = val;
+        if (sel.value !== val) sel.value = 'all';
     },
 
     renderSelects(filterType) {

@@ -5,14 +5,16 @@ const Notifications = {
     unsub: null,
     refreshInterval: null,
     paydayInterval: null,
+    _bound: false,
 
     init() {
         this.requestPermission();
         this.listenForNotifications();
         this.fetchNow();
         this.checkPayday();
+        if (this.paydayInterval) clearInterval(this.paydayInterval);
         this.paydayInterval = setInterval(() => this.checkPayday(), 60 * 60 * 1000);
-        this.bindDropdown();
+        if (!this._bound) { this.bindDropdown(); this._bound = true; }
         this.renderWidget();
         this.renderBadge();
         if (this.refreshInterval) clearInterval(this.refreshInterval);
@@ -64,7 +66,7 @@ const Notifications = {
         }
     },
 
-    async add(type, title, body, targetUser) {
+    async add(type, title, body, targetUser, paydayKey = null) {
         const notif = {
             type,
             title,
@@ -73,6 +75,7 @@ const Notifications = {
             read: false,
             targetUser
         };
+        if (paydayKey) notif.paydayKey = paydayKey;
         try {
             await db.collection('notifications').add(notif);
         } catch (e) { /* silent */ }
@@ -104,8 +107,8 @@ const Notifications = {
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         if (userId === 'nadia') {
-            const lastDay = Utils.getLastBusinessDay(now.getFullYear(), now.getMonth() + 1);
-            return today <= lastDay ? lastDay : Utils.getLastBusinessDay(now.getFullYear(), now.getMonth() + 2);
+            const firstDay = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            return today <= firstDay ? firstDay : new Date(now.getFullYear(), now.getMonth() + 2, 1);
         }
 
         if (userId === 'elias') {
@@ -118,7 +121,7 @@ const Notifications = {
         return null;
     },
 
-    checkPayday() {
+    async checkPayday() {
         const today = Utils.todayStr();
         let notified;
         try {
@@ -127,22 +130,33 @@ const Notifications = {
             notified = {};
         }
 
-        ['nadia', 'elias'].forEach(userId => {
+        for (const userId of ['nadia', 'elias']) {
             const date = this.getNextPayDate(userId);
-            if (!date) return;
+            if (!date) continue;
             const days = Utils.daysUntil(date);
             if (days <= 1 && days >= 0) {
                 const key = `${userId}_${today}`;
                 if (!notified[key]) {
                     const name = userId === 'nadia' ? 'Nadia' : 'Elias';
                     const msg = days === 0 ? '¡Hoy es tu día de cobro!' : '¡Mañana es tu día de cobro!';
-                    this.add('payday', name, msg, userId);
-                    this.sendPush(`${name}, ${msg}`, 'Toca para registrar tu ingreso');
+                    try {
+                        const existing = await db.collection('notifications')
+                            .where('targetUser', '==', userId)
+                            .where('paydayKey', '==', key)
+                            .limit(1)
+                            .get();
+                        if (existing.empty) {
+                            await this.add('payday', name, msg, userId, key);
+                            this.sendPush(`${name}, ${msg}`, 'Toca para registrar tu ingreso');
+                        }
+                    } catch (e) {
+                        console.error('Payday check error:', e);
+                    }
                     notified[key] = true;
                     localStorage.setItem(this.PAYDAY_KEY, JSON.stringify(notified));
                 }
             }
-        });
+        }
         this.renderWidget();
     },
 

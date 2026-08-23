@@ -108,6 +108,10 @@ const Transactions = {
             return;
         }
 
+        const submitBtn = document.querySelector('#tx-form button[type="submit"]');
+        if (submitBtn && submitBtn.disabled) return;
+        if (submitBtn) submitBtn.disabled = true;
+
         try {
             const receiptFile = document.getElementById('tx-receipt').files[0];
             let receiptUrl = null;
@@ -117,17 +121,23 @@ const Transactions = {
 
             if (id) {
                 const originalTx = this.list.find(t => t.id === id);
-                const paid = paymentMethod === 'debito';
+                const sameMethod = originalTx && originalTx.paymentMethod === paymentMethod;
+                const paid = paymentMethod === 'debito' ? true : (sameMethod ? originalTx.paid === true : false);
                 const data = { type, amount, categoryId, description, date, paymentMethod, paid, userId: Auth.currentUser, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
                 if (receiptUrl) data.receiptUrl = receiptUrl;
                 await db.collection('transactions').doc(id).update(data);
                 if (originalTx && originalTx.installments > 1) {
-                    const siblings = this.list.filter(t =>
-                        t.id !== id && t.userId === Auth.currentUser &&
-                        t.description === originalTx.description &&
-                        t.installments === originalTx.installments && t.installments > 1 &&
-                        t.amount === originalTx.amount
-                    );
+                    let siblings;
+                    if (originalTx.groupId) {
+                        siblings = this.list.filter(t => t.id !== id && t.groupId === originalTx.groupId);
+                    } else {
+                        siblings = this.list.filter(t =>
+                            t.id !== id && t.userId === Auth.currentUser &&
+                            t.description === originalTx.description &&
+                            t.installments === originalTx.installments && t.installments > 1 &&
+                            t.amount === originalTx.amount
+                        );
+                    }
                     if (siblings.length > 0) {
                         const batch = db.batch();
                         const up = { categoryId };
@@ -140,15 +150,18 @@ const Transactions = {
                 const installmentAmount = Math.round((amount / installments) * 100) / 100;
                 const batch = db.batch();
                 const purchaseDate = new Date(date + 'T12:00:00');
+                const groupId = `grp_${purchaseDate.getTime()}_${Math.random().toString(36).slice(2, 8)}`;
                 for (let i = 1; i <= installments; i++) {
-                    const instDate = new Date(purchaseDate);
-                    instDate.setMonth(instDate.getMonth() + i);
-                    const instDateStr = instDate.toISOString().split('T')[0];
+                    const year = purchaseDate.getFullYear();
+                    const monthIdx = purchaseDate.getMonth() + i;
+                    const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+                    const instDate = new Date(year, monthIdx, Math.min(purchaseDate.getDate(), lastDay));
+                    const instDateStr = `${instDate.getFullYear()}-${String(instDate.getMonth() + 1).padStart(2, '0')}-${String(instDate.getDate()).padStart(2, '0')}`;
                     const ref = db.collection('transactions').doc();
                     const data = {
                         type, amount: installmentAmount, categoryId, description, date: instDateStr,
                         paymentMethod, paid: false,
-                        installments, installmentNum: i,
+                        installments, installmentNum: i, groupId,
                         userId: Auth.currentUser,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
@@ -175,7 +188,10 @@ const Transactions = {
             await this.load();
             App.navigate('gastos');
         } catch (e) {
+            console.error('Error saving transaction:', e);
             App.toast('Error al guardar', 'error');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
         }
     },
 
@@ -184,10 +200,10 @@ const Transactions = {
         try {
             const doc = await db.collection('transactions').doc(id).get();
             const data = doc.data();
+            await db.collection('transactions').doc(id).delete();
             if (data && data.receiptUrl) {
                 await StorageManager.delete(data.receiptUrl);
             }
-            await db.collection('transactions').doc(id).delete();
             App.toast('Eliminada', 'success');
             await this.load();
         } catch (e) {
@@ -197,7 +213,8 @@ const Transactions = {
 
     async markPaid(id) {
         const tx = this.list.find(t => t.id === id);
-        if (tx && tx.userId !== Auth.currentUser) {
+        if (!tx) return;
+        if (tx.userId !== Auth.currentUser) {
             App.toast('No podés pagar gastos de otro usuario', 'error');
             return;
         }

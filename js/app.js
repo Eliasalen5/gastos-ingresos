@@ -58,11 +58,9 @@ const App = {
 
     navigate(page) {
         if (this.currentPage === 'nuevo-gasto' && page !== 'nuevo-gasto') {
-            const form = document.getElementById('tx-form');
             const hasData = document.getElementById('tx-amount').value || document.getElementById('tx-description').value;
-            if (hasData && !document.getElementById('tx-id').value) {
-                if (!confirm('¿Salir sin guardar?')) return;
-            }
+            if (hasData && !confirm('¿Salir sin guardar?')) return;
+            Transactions.resetForm();
         }
         this.currentPage = page;
         document.getElementById('notif-dropdown')?.classList.add('hidden');
@@ -149,7 +147,7 @@ const App = {
     renderPagos() {
         const el = document.getElementById('pagos-list');
         const summaryEl = document.getElementById('pagos-summary');
-        if (!el) return;
+        if (!el || !summaryEl) return;
 
         const pending = Transactions.getUnpaidExpenses().filter(tx => tx.installments >= 1 && tx.userId === Auth.currentUser);
         const total = pending.reduce((s, tx) => s + tx.amount, 0);

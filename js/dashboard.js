@@ -66,9 +66,7 @@ const Dashboard = {
         const labels = entries.map(c => c.name);
         const data = entries.map(c => c.total);
         const colors = entries.map(c => c.color);
-        this._catData = entries;
-        this._catTxs = txs;
-        this._catPrefix = prefix;
+        const catCtx = { data: entries, txs, prefix };
         const canvas = document.getElementById('category-chart');
         if (!canvas) return;
         this.destroyChart('cat');
@@ -82,7 +80,7 @@ const Dashboard = {
                     responsive: true,
                     maintainAspectRatio: false,
                     onClick: (e, el) => {
-                        if (el.length > 0) this.showCatDetail(el[0].index);
+                        if (el.length > 0) this.showCatDetail(el[0].index, catCtx);
                     },
                     plugins: { legend: { position: 'bottom', labels: { padding: 10, font: { size: 11 } } } }
                 }
@@ -92,17 +90,18 @@ const Dashboard = {
         }
     },
 
-    showCatDetail(index) {
+    showCatDetail(index, ctx = {}) {
         const modal = document.getElementById('cat-detail-modal');
         const body = document.getElementById('cat-detail-body');
         const title = document.getElementById('cat-detail-title');
-        if (!modal || !body || !this._catData || !this._catData[index]) return;
-        const c = this._catData[index];
-        const list = (this._catTxs || [])
+        const data = ctx.data || this._catData;
+        if (!modal || !body || !data || !data[index]) return;
+        const c = data[index];
+        const list = (ctx.txs || [])
             .filter(tx => c.id ? tx.categoryId === c.id : !Categories.getById(tx.categoryId))
             .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
         if (title) {
-            const p = this._catPrefix;
+            const p = ctx.prefix;
             const monthLabel = p && p.length >= 7 ? Utils.formatMonth(Number(p.slice(0, 4)), Number(p.slice(5, 7))) : '';
             title.textContent = monthLabel ? `${c.name} · ${monthLabel}` : c.name;
         }
@@ -241,9 +240,7 @@ const Dashboard = {
             const colors = entries.map(c => c.color);
             const gMonth = document.getElementById('grupal-month');
             const gPrefix = gMonth && gMonth.value ? gMonth.value : Utils.currentYearMonth();
-            this._catData = entries;
-            this._catTxs = paid;
-            this._catPrefix = gPrefix;
+            const catCtx = { data: entries, txs: paid, prefix: gPrefix };
 
             if (data.length === 0 || typeof Chart === 'undefined') {
                 canvas.style.display = data.length === 0 ? 'none' : 'block';
@@ -258,7 +255,7 @@ const Dashboard = {
                         responsive: true,
                         maintainAspectRatio: false,
                         onClick: (e, el) => {
-                            if (el.length > 0) this.showCatDetail(el[0].index);
+                            if (el.length > 0) this.showCatDetail(el[0].index, catCtx);
                         },
                         plugins: { legend: { position: 'bottom', labels: { padding: 10, font: { size: 11 } } } }
                     }

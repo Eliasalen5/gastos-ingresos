@@ -310,6 +310,10 @@ const Ahorro = {
             data = { userId, type, currency, amount, amountARS, rate, date, description, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
         }
 
+        const submitBtn = document.querySelector('#ahorro-form button[type="submit"]');
+        if (submitBtn && submitBtn.disabled) return;
+        if (submitBtn) submitBtn.disabled = true;
+
         try {
             if (id) {
                 await db.collection('ahorros').doc(id).update(data);
@@ -323,6 +327,8 @@ const Ahorro = {
             if (App.currentPage === 'home') Dashboard.refresh();
         } catch (e) {
             App.toast('Error al guardar', 'error');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
         }
     },
 
