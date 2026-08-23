@@ -465,7 +465,7 @@ const Inversiones = {
             if (id) {
                 await db.collection('inversion_aportes').doc(id).update(data);
             } else {
-                await db.collection('inversion_aportes').add(data);
+                const aporteRef = await db.collection('inversion_aportes').add(data);
                 if (descontar) {
                     if (currency === 'USD') {
                         await db.collection('ahorros').add({
@@ -477,6 +477,7 @@ const Inversiones = {
                             rate,
                             date,
                             description: `Inversión: ${(obj && obj.name) || 'objetivo'}`,
+                            inversionAporteId: aporteRef.id,
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                         if (typeof Ahorro !== 'undefined' && Ahorro.load) await Ahorro.load();
@@ -493,6 +494,7 @@ const Inversiones = {
                             paymentMethod: 'debito',
                             paid: true,
                             installments: 1,
+                            inversionAporteId: aporteRef.id,
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                         if (typeof Transactions !== 'undefined' && Transactions.load) await Transactions.load();
@@ -531,14 +533,69 @@ const Inversiones = {
         }
     },
 
+    async revertLinkedDiscount(aporteId, m) {
+        const linked = [];
+        try {
+            const snapA = await db.collection('ahorros').where('inversionAporteId', '==', aporteId).get();
+            snapA.forEach(d => linked.push({ col: 'ahorros', id: d.id }));
+            const snapT = await db.collection('transactions').where('inversionAporteId', '==', aporteId).get();
+            snapT.forEach(d => linked.push({ col: 'transactions', id: d.id }));
+
+            const isAporte = !m || !m.type || m.type === 'aporte';
+            if (linked.length === 0 && isAporte && m) {
+                if (m && m.currency === 'USD') {
+                    const snap = await db.collection('ahorros')
+                        .where('userId', '==', m.userId)
+                        .where('date', '==', m.date)
+                        .where('amount', '==', m.amount)
+                        .where('type', '==', 'retiro')
+                        .get();
+                    snap.forEach(d => {
+                        const dd = d.data();
+                        if (!dd.inversionAporteId && (dd.description || '').startsWith('Inversión:')) {
+                            linked.push({ col: 'ahorros', id: d.id });
+                        }
+                    });
+                } else if (m) {
+                    const snap = await db.collection('transactions')
+                        .where('userId', '==', m.userId)
+                        .where('date', '==', m.date)
+                        .where('amount', '==', m.amount)
+                        .where('type', '==', 'expense')
+                        .get();
+                    snap.forEach(d => {
+                        const dd = d.data();
+                        if (!dd.inversionAporteId && (dd.description || '').startsWith('Inversión:')) {
+                            linked.push({ col: 'transactions', id: d.id });
+                        }
+                    });
+                }
+            }
+
+            for (const l of linked) {
+                await db.collection(l.col).doc(l.id).delete();
+            }
+            return linked.length > 0;
+        } catch (e) {
+            console.error('Error revirtiendo el descuento:', e);
+            return false;
+        }
+    },
+
     async deleteMove(id) {
-        if (!confirm('¿Eliminar movimiento?')) return;
+        const m = this.aportes.find(x => x.id === id);
+        if (!confirm(m && m.type !== 'retiro' ? '¿Eliminar aporte? Si fue descontado del sueldo o del ahorro, se revertirá el descuento.' : '¿Eliminar movimiento?')) return;
         try {
             await db.collection('inversion_aportes').doc(id).delete();
-            App.toast('Eliminado', 'success');
+            const reverted = await this.revertLinkedDiscount(id, m);
+            App.toast(reverted ? 'Eliminado · descuento revertido' : 'Eliminado', 'success');
             await this.load();
             this.render();
+            if (typeof Transactions !== 'undefined' && Transactions.load) await Transactions.load();
+            if (typeof Ahorro !== 'undefined' && Ahorro.load) await Ahorro.load();
+            if (App.currentPage === 'home') Dashboard.refresh();
         } catch (e) {
+            console.error(e);
             App.toast('Error al eliminar', 'error');
         }
     },
