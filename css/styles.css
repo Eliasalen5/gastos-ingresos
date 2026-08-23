@@ -1073,6 +1073,17 @@ canvas { max-height: 250px; }
     font-size: 0.9rem;
     font-weight: 500;
 }
+
+/* ── Touch UX (todas las pantallas táctiles) ── */
+.btn, .icon-btn, .nav-item, .bottom-nav-item, .type-btn, .pay-btn,
+.mov-type-btn, .inv-type-btn, .tab-btn, .dash-tab, .user-btn {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+.modal-content, .notif-dropdown, .sidebar {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
 .checkbox-label input[type="checkbox"] {
     width: 18px;
     height: 18px;
@@ -1237,10 +1248,63 @@ canvas { max-height: 250px; }
 }
 .inv-pct-edit { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; }
 .inv-pct-edit:hover { color: var(--text); }
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-size: 0.88rem;
+
+/* ══════ Mobile refinements ══════ */
+@media (max-width: 768px) {
+    html { -webkit-text-size-adjust: 100%; }
+    #app { min-height: 100dvh; }
+
+    /* Evita el zoom automático de iOS al enfocar inputs */
+    .form-control,
+    input[type="text"], input[type="number"], input[type="date"],
+    input[type="month"], select, textarea {
+        font-size: 16px !important;
+    }
+
+    /* Safe areas (iPhone home indicator) */
+    .bottom-nav {
+        height: calc(var(--bottom-h) + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .content { padding-bottom: calc(var(--bottom-h) + env(safe-area-inset-bottom, 0px) + 16px); }
+    #toast-container { bottom: calc(var(--bottom-h) + env(safe-area-inset-bottom, 0px) + 12px); }
+
+    /* Modales como bottom sheet */
+    .modal { align-items: flex-end; padding: 0; }
+    .modal-content {
+        max-width: 100%;
+        border-radius: 16px 16px 0 0;
+        border-bottom: none;
+        max-height: 90dvh;
+        padding: 16px;
+        padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    }
+    .modal-header h3 { font-size: 1rem; }
+
+    /* Textos largos sin desbordar */
+    .target-header { flex-wrap: wrap; gap: 4px; }
+    .inv-pct-edit { flex-wrap: wrap; white-space: normal; }
+    .target-row { font-size: 0.8rem; }
+    .target-row span:first-child { overflow-wrap: anywhere; text-align: left; }
+    .user-bar-group div { flex-wrap: wrap; gap: 4px; }
+    .pago-month-label { flex-wrap: wrap; min-width: 0; }
+    .dolar-values { gap: 12px; }
+
+    /* Grupos de botones más holgados */
+    .mov-type-group { flex-wrap: wrap; }
+    .mov-type-btn { flex: 1 1 calc(50% - 8px); }
+    .type-group, .pay-group, .mov-type-group { gap: 6px; }
+
+    /* Icon picker denso */
+    .icon-option { width: 34px; height: 34px; }
+}
+
+@media (max-width: 400px) {
+    .card { padding: 14px; }
+    .stat-card { padding: 12px; }
+    .stat-card .value { font-size: 1rem; }
+    .modal-content { padding: 14px; padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+    .login-title { font-size: 1.2rem; }
+    .user-btn { padding: 18px 22px; }
+    .bottom-nav-item { padding: 2px 0; letter-spacing: 0; }
 }
