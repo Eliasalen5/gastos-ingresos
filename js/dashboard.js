@@ -58,15 +58,17 @@ const Dashboard = {
         const map = {};
         txs.forEach(tx => {
             const cat = Categories.getById(tx.categoryId);
-            const k = cat ? cat.name : 'Otros';
-            const c = cat ? cat.color : '#95A5A6';
-            map[k] = map[k] || { total: 0, color: c };
+            const k = cat ? cat.id : 'otros';
+            map[k] = map[k] || { id: cat ? cat.id : null, name: cat ? cat.name : 'Otros', color: cat ? cat.color : '#95A5A6', total: 0 };
             map[k].total += tx.amount;
         });
-        const labels = Object.keys(map);
-        const data = labels.map(l => map[l].total);
-        const colors = labels.map(l => map[l].color);
-        this._catData = labels.map((l, i) => ({ name: l, total: data[i], color: colors[i] }));
+        const entries = Object.values(map);
+        const labels = entries.map(c => c.name);
+        const data = entries.map(c => c.total);
+        const colors = entries.map(c => c.color);
+        this._catData = entries;
+        this._catTxs = txs;
+        this._catPrefix = prefix;
         const canvas = document.getElementById('category-chart');
         if (!canvas) return;
         this.destroyChart('cat');
@@ -80,7 +82,7 @@ const Dashboard = {
                     responsive: true,
                     maintainAspectRatio: false,
                     onClick: (e, el) => {
-                        if (el.length > 0) this.showCatDetail();
+                        if (el.length > 0) this.showCatDetail(el[0].index);
                     },
                     plugins: { legend: { position: 'bottom', labels: { padding: 10, font: { size: 11 } } } }
                 }
@@ -90,19 +92,41 @@ const Dashboard = {
         }
     },
 
-    showCatDetail() {
+    showCatDetail(index) {
         const modal = document.getElementById('cat-detail-modal');
         const body = document.getElementById('cat-detail-body');
-        if (!modal || !body || !this._catData) return;
-        const total = this._catData.reduce((s, c) => s + c.total, 0);
-        body.innerHTML = this._catData.map(c => `
-            <div class="cat-detail-row">
-                <div class="cat-detail-color" style="background:${c.color}"></div>
-                <span class="cat-detail-name">${Utils.esc(c.name)}</span>
-                <span class="cat-detail-pct">${(c.total / total * 100).toFixed(1)}%</span>
-                <span class="cat-detail-amount">${Utils.formatMoney(c.total)}</span>
-            </div>
-        `).join('');
+        const title = document.getElementById('cat-detail-title');
+        if (!modal || !body || !this._catData || !this._catData[index]) return;
+        const c = this._catData[index];
+        const list = (this._catTxs || [])
+            .filter(tx => c.id ? tx.categoryId === c.id : !Categories.getById(tx.categoryId))
+            .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        if (title) {
+            const p = this._catPrefix;
+            const monthLabel = p && p.length >= 7 ? Utils.formatMonth(Number(p.slice(0, 4)), Number(p.slice(5, 7))) : '';
+            title.textContent = monthLabel ? `${c.name} · ${monthLabel}` : c.name;
+        }
+        if (list.length === 0) {
+            body.innerHTML = '<p class="muted">Sin transacciones</p>';
+        } else {
+            body.innerHTML = list.map(tx => {
+                const pmLabel = tx.paymentMethod === 'credito'
+                    ? `Crédito${tx.installments ? ` · Cuota ${tx.installmentNum}/${tx.installments}` : ''}`
+                    : 'Débito';
+                return `
+                <div class="cat-detail-row">
+                    <div class="cat-tx-info">
+                        <span class="fw500">${Utils.esc(tx.description || c.name)}</span>
+                        <span class="cat-tx-meta">${Utils.formatDate(tx.date)} · ${pmLabel}</span>
+                    </div>
+                    <span class="cat-detail-amount expense">-${Utils.formatMoney(tx.amount)}</span>
+                </div>`;
+            }).join('') + `
+            <div class="cat-detail-total">
+                <span>Total</span>
+                <span>-${Utils.formatMoney(c.total)}</span>
+            </div>`;
+        }
         modal.classList.remove('hidden');
     },
 
@@ -208,13 +232,18 @@ const Dashboard = {
             paid.forEach(tx => {
                 const cat = Categories.getById(tx.categoryId);
                 const k = cat ? cat.id : 'otros';
-                map[k] = map[k] || { name: cat ? cat.name : 'Otros', color: cat ? cat.color : '#95A5A6', total: 0 };
+                map[k] = map[k] || { id: cat ? cat.id : null, name: cat ? cat.name : 'Otros', color: cat ? cat.color : '#95A5A6', total: 0 };
                 map[k].total += tx.amount;
             });
             const entries = Object.values(map);
             const labels = entries.map(c => c.name);
             const data = entries.map(c => c.total);
             const colors = entries.map(c => c.color);
+            const gMonth = document.getElementById('grupal-month');
+            const gPrefix = gMonth && gMonth.value ? gMonth.value : Utils.currentYearMonth();
+            this._catData = entries;
+            this._catTxs = paid;
+            this._catPrefix = gPrefix;
 
             if (data.length === 0 || typeof Chart === 'undefined') {
                 canvas.style.display = data.length === 0 ? 'none' : 'block';
@@ -228,9 +257,8 @@ const Dashboard = {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        onClick: () => {
-                            this._catData = entries;
-                            this.showCatDetail();
+                        onClick: (e, el) => {
+                            if (el.length > 0) this.showCatDetail(el[0].index);
                         },
                         plugins: { legend: { position: 'bottom', labels: { padding: 10, font: { size: 11 } } } }
                     }
