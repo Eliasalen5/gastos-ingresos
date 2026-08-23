@@ -3,14 +3,24 @@ const Inversiones = {
     aportes: [],
     _bound: false,
 
+    INSTRUMENTOS: [
+        { id: 'efectivo', label: 'Pesos / caja de ahorro', icon: 'fa-money-bill' },
+        { id: 'plazo_fijo', label: 'Plazo fijo', icon: 'fa-building-columns' },
+        { id: 'usd_billete', label: 'Dólar billete', icon: 'fa-dollar-sign' },
+        { id: 'sp500', label: 'Broker · S&P 500', icon: 'fa-chart-line' },
+        { id: 'cedears', label: 'Broker · CEDEARs', icon: 'fa-chart-simple' },
+        { id: 'bonos', label: 'Bonos / Fondo común', icon: 'fa-landmark' },
+        { id: 'otro', label: 'Otro', icon: 'fa-tag' }
+    ],
+
     DEFAULTS: [
-        { id: 'inv_emergencia', name: 'Fondo de emergencia', icon: 'fa-umbrella', color: '#E74C3C', pct: 25, order: 1, plazo: null },
-        { id: 'inv_hijo', name: 'Futuro de nuestro hijo', icon: 'fa-baby', color: '#FF6B9D', pct: 20, order: 2, plazo: null },
-        { id: 'inv_jubilacion', name: 'Jubilación', icon: 'fa-umbrella-beach', color: '#2ECC71', pct: 15, order: 3, plazo: null },
-        { id: 'inv_serrucho', name: 'Inversión serrucho (vacaciones)', icon: 'fa-plane', color: '#3498DB', pct: 15, order: 4, plazo: '1 año' },
-        { id: 'inv_2anios', name: 'Inversión a 2 años', icon: 'fa-hourglass-half', color: '#9B59B6', pct: 10, order: 5, plazo: '2 años' },
-        { id: 'inv_5anios', name: 'Inversión a 5 años', icon: 'fa-seedling', color: '#1ABC9C', pct: 10, order: 6, plazo: '5 años' },
-        { id: 'inv_10anios', name: 'Inversión a 10 años', icon: 'fa-tree', color: '#27AE60', pct: 5, order: 7, plazo: '10 años' }
+        { id: 'inv_emergencia', name: 'Fondo de emergencia', icon: 'fa-umbrella', color: '#E74C3C', pct: 25, order: 1, plazo: null, metodo: 'efectivo', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 0, freqRetiroMeses: 0 },
+        { id: 'inv_hijo', name: 'Futuro de nuestro hijo', icon: 'fa-baby', color: '#FF6B9D', pct: 20, order: 2, plazo: null, metodo: 'usd_billete', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 12, freqRetiroMeses: 12 },
+        { id: 'inv_jubilacion', name: 'Jubilación', icon: 'fa-umbrella-beach', color: '#2ECC71', pct: 15, order: 3, plazo: null, metodo: 'sp500', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 0, freqRetiroMeses: 0 },
+        { id: 'inv_serrucho', name: 'Inversión serrucho (vacaciones)', icon: 'fa-plane', color: '#3498DB', pct: 15, order: 4, plazo: '1 año', metodo: 'usd_billete', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 12, freqRetiroMeses: 0 },
+        { id: 'inv_2anios', name: 'Inversión a 2 años', icon: 'fa-hourglass-half', color: '#9B59B6', pct: 10, order: 5, plazo: '2 años', metodo: 'plazo_fijo', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 24, freqRetiroMeses: 0 },
+        { id: 'inv_5anios', name: 'Inversión a 5 años', icon: 'fa-seedling', color: '#1ABC9C', pct: 10, order: 6, plazo: '5 años', metodo: 'cedears', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 60, freqRetiroMeses: 0 },
+        { id: 'inv_10anios', name: 'Inversión a 10 años', icon: 'fa-tree', color: '#27AE60', pct: 5, order: 7, plazo: '10 años', metodo: 'sp500', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 120, freqRetiroMeses: 0 }
     ],
 
     async init() {
@@ -40,6 +50,10 @@ const Inversiones = {
         document.getElementById('inv-currency')?.addEventListener('change', () => this.updatePreview());
         document.getElementById('inv-amount')?.addEventListener('input', () => this.updatePreview());
         document.getElementById('inv-rate')?.addEventListener('input', () => this.updatePreview());
+
+        document.querySelectorAll('#inv-obj-modal .modal-close').forEach(b => b.addEventListener('click', () => this.closeObjModal()));
+        document.querySelector('#inv-obj-modal .modal-overlay')?.addEventListener('click', () => this.closeObjModal());
+        document.getElementById('inv-obj-form').addEventListener('submit', (e) => { e.preventDefault(); this.saveObjetivo(); });
     },
 
     async load() {
@@ -50,12 +64,16 @@ const Inversiones = {
             if (this.objetivos.length === 0) {
                 for (const obj of this.DEFAULTS) {
                     await db.collection('inversion_objetivos').doc(obj.id).set({
-                        name: obj.name, icon: obj.icon, color: obj.color, pct: obj.pct, order: obj.order, plazo: obj.plazo
+                        name: obj.name, icon: obj.icon, color: obj.color, pct: obj.pct, order: obj.order, plazo: obj.plazo,
+                        metodo: obj.metodo, metodoDetalle: '', monedaSugerida: obj.monedaSugerida,
+                        startDate: Utils.todayStr(), lockMeses: obj.lockMeses, freqRetiroMeses: obj.freqRetiroMeses
                     });
                 }
-                this.objetivos = [...this.DEFAULTS];
+                this.objetivos = this.DEFAULTS.map(o => ({ ...o, startDate: Utils.todayStr(), metodoDetalle: '' }));
             }
             this.objetivos.sort((a, b) => (a.order || 99) - (b.order || 99));
+
+            await this.migrateObjetivos();
 
             const snap2 = await db.collection('inversion_aportes').orderBy('date', 'desc').limit(1000).get();
             this.aportes = [];
@@ -67,8 +85,70 @@ const Inversiones = {
         }
     },
 
+    async migrateObjetivos() {
+        const today = Utils.todayStr();
+        for (const o of this.objetivos) {
+            const def = this.DEFAULTS.find(d => d.id === o.id);
+            const patch = {};
+            if (o.metodo === undefined) patch.metodo = def ? def.metodo : 'otro';
+            if (o.metodoDetalle === undefined) patch.metodoDetalle = '';
+            if (o.monedaSugerida === undefined) patch.monedaSugerida = def ? def.monedaSugerida : '';
+            if (o.startDate === undefined) patch.startDate = o.fechaCreacion || today;
+            if (o.lockMeses === undefined) patch.lockMeses = def ? def.lockMeses : 0;
+            if (o.freqRetiroMeses === undefined) patch.freqRetiroMeses = def ? def.freqRetiroMeses : 0;
+            if (Object.keys(patch).length > 0) {
+                try {
+                    await db.collection('inversion_objetivos').doc(o.id).update(patch);
+                } catch (err) {
+                    console.error('Error migrating objetivo:', err);
+                }
+                Object.assign(o, patch);
+            }
+        }
+    },
+
     blueRate() {
         return (typeof Ahorro !== 'undefined' && Ahorro.dolar && Ahorro.dolar.blue) ? Ahorro.dolar.blue.venta : null;
+    },
+
+    addMonths(dateStr, n) {
+        const d = new Date((dateStr || Utils.todayStr()) + 'T12:00:00');
+        const y = d.getFullYear();
+        const m = d.getMonth() + n;
+        const lastDay = new Date(y, m + 1, 0).getDate();
+        const r = new Date(y, m, Math.min(d.getDate(), lastDay));
+        return `${r.getFullYear()}-${String(r.getMonth() + 1).padStart(2, '0')}-${String(r.getDate()).padStart(2, '0')}`;
+    },
+
+    firstAporteDate(objetivoId) {
+        const dates = this.aportes
+            .filter(a => a.objetivoId === objetivoId && a.type === 'aporte' && a.date)
+            .map(a => a.date)
+            .sort();
+        return dates[0] || null;
+    },
+
+    getWithdrawStatus(o) {
+        const hoy = Utils.todayStr();
+        const lock = o.lockMeses || 0;
+        const freq = o.freqRetiroMeses || 0;
+        if (lock > 0) {
+            const base = this.firstAporteDate(o.id) || o.startDate || Utils.todayStr();
+            const unlock = this.addMonths(base, lock);
+            if (hoy < unlock) return { estado: 'bloqueado', fecha: unlock };
+        }
+        if (freq > 0) {
+            const last = this.aportes
+                .filter(a => a.objetivoId === o.id && a.type === 'retiro' && a.date)
+                .map(a => a.date)
+                .sort()
+                .pop();
+            if (last) {
+                const next = this.addMonths(last, freq);
+                if (hoy < next) return { estado: 'ventana', fecha: next };
+            }
+        }
+        return { estado: 'libre', fecha: null };
     },
 
     getObjetivoTotals(objetivoId) {
@@ -153,12 +233,22 @@ const Inversiones = {
             const realPct = grandTotal > 0 ? (equiv / grandTotal * 100) : 0;
             const idealPct = o.pct || 0;
             const plazoBadge = o.plazo ? `<span class="inst-badge">Plazo ${Utils.esc(o.plazo)}</span>` : '';
+            const inst = this.INSTRUMENTOS.find(i => i.id === o.metodo);
+            const metodoHtml = inst ? `
+                    <div class="inv-metodo"><i class="fas ${inst.icon}"></i> ${Utils.esc(inst.label)}${o.metodoDetalle ? ` · ${Utils.esc(o.metodoDetalle)}` : ''}${o.monedaSugerida ? ` · ${o.monedaSugerida}` : ''}</div>` : '';
+            const st = this.getWithdrawStatus(o);
+            let statusHtml;
+            if (st.estado === 'bloqueado') statusHtml = `<div class="inv-lock locked"><i class="fas fa-lock"></i> Disponible desde ${Utils.formatDate(st.fecha)}</div>`;
+            else if (st.estado === 'ventana') statusHtml = `<div class="inv-lock window"><i class="fas fa-hourglass-half"></i> Próxima ventana de retiro: ${Utils.formatDate(st.fecha)}</div>`;
+            else statusHtml = `<div class="inv-lock free"><i class="fas fa-lock-open"></i> Retiros libres</div>`;
             return `
                 <div class="ahorro-target inv-target" style="border-left-color:${o.color}">
                     <div class="target-header">
                         <span class="fw600" style="color:${o.color}"><i class="fas ${o.icon}"></i> ${Utils.esc(o.name)}</span>
-                        <span class="inv-pct-edit muted" data-editpct="${o.id}" title="Editar porcentaje">${idealPct}% ${plazoBadge} <i class="fas fa-pen"></i></span>
+                        <span class="inv-pct-edit muted" data-editobj="${o.id}" title="Editar objetivo">${idealPct}% ${plazoBadge} <i class="fas fa-pen"></i></span>
                     </div>
+                    ${metodoHtml}
+                    ${statusHtml}
                     <div class="target-row"><span>Total aportado (ARS)</span><b>${Utils.formatMoney(t.ars)}</b></div>
                     <div class="target-row"><span>Total aportado (USD)</span><b style="color:var(--success)">${this.fmtUSD(t.usd)}</b></div>
                     <div class="target-row"><span>Peso real en la cartera</span><b>${realPct.toFixed(1)}% (ideal ${idealPct}%)</b></div>
@@ -175,7 +265,7 @@ const Inversiones = {
 
         el.querySelectorAll('[data-aporte]').forEach(btn => btn.addEventListener('click', () => this.openMove(btn.dataset.aporte, 'aporte')));
         el.querySelectorAll('[data-retiro]').forEach(btn => btn.addEventListener('click', () => this.openMove(btn.dataset.retiro, 'retiro')));
-        el.querySelectorAll('[data-editpct]').forEach(btn => btn.addEventListener('click', () => this.editPct(btn.dataset.editpct)));
+        el.querySelectorAll('[data-editobj]').forEach(btn => btn.addEventListener('click', () => this.openEditObjetivo(btn.dataset.editobj)));
     },
 
     renderTotals() {
@@ -330,6 +420,22 @@ const Inversiones = {
             return;
         }
 
+        const obj = this.objetivos.find(o => o.id === objetivoId);
+
+        if (type === 'retiro' && obj) {
+            const st = this.getWithdrawStatus(obj);
+            if (st.estado !== 'libre') {
+                App.toast(st.estado === 'bloqueado'
+                    ? `🔒 ${obj.name}: se puede retirar recién desde ${Utils.formatDate(st.fecha)}`
+                    : `⏳ Próxima ventana de retiro: ${Utils.formatDate(st.fecha)}`, 'error');
+                return;
+            }
+        }
+
+        if (!id && obj && obj.monedaSugerida && currency !== obj.monedaSugerida) {
+            if (!confirm(`"${obj.name}" se ahorra en ${obj.monedaSugerida}. ¿Cargar en ${currency} igual?`)) return;
+        }
+
         let rate = null;
         if (currency === 'USD') {
             rate = parseFloat(document.getElementById('inv-rate').value) || this.blueRate();
@@ -344,7 +450,6 @@ const Inversiones = {
         if (submitBtn) submitBtn.disabled = true;
 
         try {
-            const obj = this.objetivos.find(o => o.id === objetivoId);
             const amountARS = currency === 'USD' ? Math.round(amount * rate * 100) / 100 : Math.round(amount * 100) / 100;
             const data = { userId, objetivoId, type, currency, amount, amountARS, rate, date, description, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
 
@@ -393,25 +498,64 @@ const Inversiones = {
         }
     },
 
-    async editPct(objetivoId) {
+    openEditObjetivo(objetivoId) {
         const o = this.objetivos.find(x => x.id === objetivoId);
         if (!o) return;
-        const val = prompt(`Porcentaje mensual para "${o.name}" (los objetivos deberían sumar 100%):`, o.pct != null ? o.pct : '');
-        if (val === null) return;
-        const pct = parseFloat(val);
+        document.getElementById('inv-obj-id').value = o.id;
+        document.getElementById('inv-obj-title').textContent = `Editar: ${o.name}`;
+        const metSel = document.getElementById('io-metodo');
+        metSel.innerHTML = this.INSTRUMENTOS.map(i => `<option value="${i.id}">${i.label}</option>`).join('');
+        metSel.value = o.metodo || 'otro';
+        document.getElementById('io-pct').value = o.pct != null ? o.pct : '';
+        document.getElementById('io-plazo').value = o.plazo || '';
+        document.getElementById('io-detalle').value = o.metodoDetalle || '';
+        document.getElementById('io-moneda').value = o.monedaSugerida || 'ARS';
+        document.getElementById('io-lock').value = o.lockMeses || 0;
+        document.getElementById('io-freq').value = o.freqRetiroMeses || 0;
+        const base = this.firstAporteDate(o.id);
+        document.getElementById('io-base').textContent = base
+            ? (lockBaseInfo(base, o.lockMeses || 0, this))
+            : 'Sin aportes todavía: el plazo empieza a contar con tu primer aporte.';
+        document.getElementById('inv-obj-modal').classList.remove('hidden');
+    },
+
+    closeObjModal() {
+        document.getElementById('inv-obj-modal').classList.add('hidden');
+    },
+
+    async saveObjetivo() {
+        const id = document.getElementById('inv-obj-id').value;
+        const o = this.objetivos.find(x => x.id === id);
+        if (!o) return;
+        const pct = parseFloat(document.getElementById('io-pct').value);
         if (isNaN(pct) || pct < 0 || pct > 100) {
             App.toast('Porcentaje inválido (0 a 100)', 'error');
             return;
         }
+        const patch = {
+            pct,
+            plazo: document.getElementById('io-plazo').value.trim() || null,
+            metodo: document.getElementById('io-metodo').value,
+            metodoDetalle: document.getElementById('io-detalle').value.trim(),
+            monedaSugerida: document.getElementById('io-moneda').value,
+            lockMeses: Math.max(0, parseInt(document.getElementById('io-lock').value, 10) || 0),
+            freqRetiroMeses: Math.max(0, parseInt(document.getElementById('io-freq').value, 10) || 0)
+        };
         try {
-            await db.collection('inversion_objetivos').doc(objetivoId).update({ pct });
-            o.pct = pct;
+            await db.collection('inversion_objetivos').doc(id).update(patch);
+            Object.assign(o, patch);
             const total = this.objetivos.reduce((s, x) => s + (x.pct || 0), 0);
-            if (total !== 100) App.toast(`Ojo: los porcentajes ahora suman ${total}%`, 'info');
-            else App.toast('Porcentaje actualizado', 'success');
+            if (total !== 100) App.toast(`Guardado. Ojo: los porcentajes suman ${total}%`, 'info');
+            else App.toast('Objetivo actualizado', 'success');
+            this.closeObjModal();
             this.render();
         } catch (e) {
             App.toast('Error al actualizar', 'error');
         }
     }
 };
+
+function lockBaseInfo(firstDate, lockMeses, ctx) {
+    const unlock = ctx.addMonths(firstDate, lockMeses);
+    return `Primer aporte: ${Utils.formatDate(firstDate)}. ${lockMeses > 0 ? `Disponible desde ${Utils.formatDate(unlock)}.` : 'Sin bloqueo.'}`;
+}

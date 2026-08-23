@@ -1248,6 +1248,32 @@ canvas { max-height: 250px; }
 }
 .inv-pct-edit { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; }
 .inv-pct-edit:hover { color: var(--text); }
+.inv-metodo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: var(--bg, rgba(255,255,255,0.04));
+    border-radius: 8px;
+    overflow-wrap: anywhere;
+}
+.inv-metodo i { opacity: 0.75; flex-shrink: 0; }
+.inv-lock {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-top: 8px;
+    padding: 4px 10px;
+    border-radius: 999px;
+}
+.inv-lock.locked { background: rgba(231,76,60,0.12); color: #E74C3C; }
+.inv-lock.window { background: rgba(241,196,15,0.12); color: #D4AC0D; }
+.inv-lock.free { background: rgba(46,204,113,0.12); color: var(--success); }
+.io-base-info { font-size: 0.78rem; color: var(--muted, #888); margin: 4px 0 0; }
 
 /* ══════ Mobile refinements ══════ */
 @media (max-width: 768px) {
