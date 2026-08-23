@@ -351,12 +351,20 @@ const Inversiones = {
         this.updatePreview();
     },
 
+    updateDescontarLabel() {
+        const lbl = document.getElementById('inv-descontar-label');
+        if (!lbl) return;
+        const currency = document.getElementById('inv-currency').value;
+        lbl.textContent = currency === 'USD' ? 'Descontar de Ahorro Dólar' : 'Descontar del sueldo';
+    },
+
     updatePreview() {
         const el = document.getElementById('inv-preview');
         const rateGroup = document.getElementById('inv-rate-group');
         const type = document.querySelector('.inv-type-btn.active')?.dataset.invType || 'aporte';
         const currency = document.getElementById('inv-currency').value;
         if (rateGroup) rateGroup.classList.toggle('hidden', currency !== 'USD');
+        this.updateDescontarLabel();
 
         const amount = parseFloat(document.getElementById('inv-amount').value) || 0;
         const rate = parseFloat(document.getElementById('inv-rate').value) || this.blueRate() || 0;
@@ -458,19 +466,38 @@ const Inversiones = {
             } else {
                 await db.collection('inversion_aportes').add(data);
                 if (descontar) {
-                    await db.collection('ahorros').add({
-                        userId,
-                        type: 'retiro',
-                        currency,
-                        amount,
-                        amountARS,
-                        rate,
-                        date,
-                        description: `Inversión: ${(obj && obj.name) || 'objetivo'}`,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    if (typeof Ahorro !== 'undefined' && Ahorro.load) await Ahorro.load();
-                    App.toast('Descontado de Ahorro Dólar', 'info');
+                    if (currency === 'USD') {
+                        await db.collection('ahorros').add({
+                            userId,
+                            type: 'retiro',
+                            currency,
+                            amount,
+                            amountARS,
+                            rate,
+                            date,
+                            description: `Inversión: ${(obj && obj.name) || 'objetivo'}`,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        if (typeof Ahorro !== 'undefined' && Ahorro.load) await Ahorro.load();
+                        App.toast('Descontado de Ahorro Dólar', 'info');
+                    } else {
+                        const catId = await this.getInversionExpenseCategoryId();
+                        await db.collection('transactions').add({
+                            userId,
+                            type: 'expense',
+                            amount,
+                            categoryId: catId,
+                            description: `Inversión: ${(obj && obj.name) || 'objetivo'}`,
+                            date,
+                            paymentMethod: 'debito',
+                            paid: true,
+                            installments: 1,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        if (typeof Transactions !== 'undefined' && Transactions.load) await Transactions.load();
+                        if (App.currentPage === 'home') Dashboard.refresh();
+                        App.toast('Descontado del sueldo', 'info');
+                    }
                 }
             }
 
@@ -483,6 +510,23 @@ const Inversiones = {
             App.toast('Error al guardar', 'error');
         } finally {
             if (submitBtn) submitBtn.disabled = false;
+        }
+    },
+
+    async getInversionExpenseCategoryId() {
+        const existing = (typeof Categories !== 'undefined' ? Categories.list : [])
+            .find(c => c.type === 'expense' && c.name && c.name.trim().toLowerCase() === 'inversiones');
+        if (existing) return existing.id;
+        try {
+            const ref = await db.collection('categories').add({
+                name: 'Inversiones', icon: 'fa-chart-line', color: '#16A085', type: 'expense'
+            });
+            if (typeof Categories !== 'undefined' && Categories.load) await Categories.load();
+            if (typeof Categories !== 'undefined' && Categories.updateFilterSelect) Categories.updateFilterSelect();
+            return ref.id;
+        } catch (e) {
+            console.error('Error creating inversion category:', e);
+            return 'cat_otros_g';
         }
     },
 
