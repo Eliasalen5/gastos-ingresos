@@ -192,7 +192,18 @@ const Inversiones = {
             const name = u === 'nadia' ? 'Nadia' : 'Elias';
             const color = u === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
             const income = Ahorro.getMonthIncome(u, prefix);
-            const base = Math.round(income * 0.3 * 100) / 100;
+            const base = Ahorro.getMonthlyTarget(u, prefix);
+            let cobrosHtml = '';
+            if (u === 'elias') {
+                const payments = Ahorro.getSalaryPayments(u, prefix);
+                if (payments.length > 0) {
+                    cobrosHtml = `<div class="target-row" style="margin-top:2px"><span>30% de cada quincena</span><b></b></div>` +
+                        payments.map(p => {
+                            const pct = Math.round((p.amount || 0) * 0.30 * 100) / 100;
+                            return `<div class="inv-cobro-row"><span>· ${Utils.formatDate(p.date)} · ${Utils.formatMoney(p.amount)}</span><b>${Utils.formatMoney(pct)}</b></div>`;
+                        }).join('');
+                }
+            }
             const rows = this.objetivos.map(o => {
                 const monto = Math.round(base * (o.pct || 0)) / 100;
                 return `<div class="target-row">
@@ -207,7 +218,8 @@ const Inversiones = {
                         <span class="muted">${Utils.esc(monthLabel)}</span>
                     </div>
                     <div class="target-row"><span>Salario cobrado</span><b>${Utils.formatMoney(income)}</b></div>
-                    <div class="target-row"><span>30% a invertir</span><b>${Utils.formatMoney(base)}</b></div>
+                    ${cobrosHtml}
+                    <div class="target-row"><span>A invertir (30%)</span><b>${Utils.formatMoney(base)}</b></div>
                     <div style="margin-top:8px">${rows}</div>
                 </div>`;
         }).join('');

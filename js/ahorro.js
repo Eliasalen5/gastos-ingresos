@@ -92,6 +92,21 @@ const Ahorro = {
             .reduce((s, t) => s + (t.amount || 0), 0);
     },
 
+    getSalaryPayments(userId, prefix) {
+        return Transactions.list
+            .filter(tx => tx.userId === userId && tx.type === 'income' && typeof tx.date === 'string' && tx.date.startsWith(prefix))
+            .filter(tx => {
+                const cat = Categories.getById(tx.categoryId);
+                return cat && cat.name && cat.name.trim().toLowerCase() === 'salario';
+            })
+            .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    },
+
+    getMonthlyTarget(userId, prefix) {
+        const total = this.getMonthIncome(userId, prefix);
+        return Math.round(total * 0.30 * 100) / 100;
+    },
+
     getMonthSaved(userId, prefix) {
         return this.list
             .filter(m => m.userId === userId && typeof m.date === 'string' && m.date.startsWith(prefix))
@@ -176,7 +191,7 @@ const Ahorro = {
             const name = u === 'nadia' ? 'Nadia' : 'Elias';
             const color = u === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
             const income = this.getMonthIncome(u, prefix);
-            const target = Math.round(income * 0.3 * 100) / 100;
+            const target = this.getMonthlyTarget(u, prefix);
             const saved = this.getMonthSaved(u, prefix);
             const available = income - saved;
             const pct = target > 0 ? Math.max(0, Math.min(100, saved / target * 100)) : 0;
@@ -408,7 +423,7 @@ const Ahorro = {
             App.toast(`No hay ingresos registrados para ${name} este mes`, 'error');
             return;
         }
-        const target = Math.round(income * 0.3 * 100) / 100;
+        const target = this.getMonthlyTarget(userId, prefix);
         this.resetForm();
         this.setType('deposito');
         document.getElementById('ahorro-user').value = userId;

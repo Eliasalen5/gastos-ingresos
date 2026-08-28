@@ -1165,6 +1165,16 @@ canvas { max-height: 250px; }
     gap: 8px;
 }
 .target-row b { color: var(--text); }
+.inv-cobro-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    padding: 1px 0 1px 14px;
+    color: var(--muted);
+    gap: 8px;
+}
+.inv-cobro-row b { color: var(--success); }
 .ahorro-target .progress-bar { margin-top: 10px; }
 .target-footer { display: flex; gap: 8px; margin-top: 12px; }
 .target-footer .btn { flex: 1; }
