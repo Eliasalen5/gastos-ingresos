@@ -409,7 +409,7 @@ const Inversiones = {
         document.getElementById('inv-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
 
-    editMove(m) {
+    async editMove(m) {
         document.getElementById('inv-id').value = m.id;
         document.getElementById('inv-form-title').textContent = 'Editar movimiento';
         this.setType(m.type || 'aporte');
@@ -421,6 +421,13 @@ const Inversiones = {
         document.getElementById('inv-rate').value = m.rate || (this.blueRate() || '');
         document.getElementById('inv-date').value = m.date;
         document.getElementById('inv-description').value = m.description || '';
+
+        const descontarCb = document.getElementById('inv-descontar');
+        if (descontarCb && m.type !== 'retiro') {
+            const linked = await this._findLinked(m.id);
+            descontarCb.checked = !!linked;
+        }
+
         this.updatePreview();
         document.getElementById('inv-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
@@ -476,44 +483,12 @@ const Inversiones = {
 
             if (id) {
                 await db.collection('inversion_aportes').doc(id).update(data);
+                if (type === 'aporte') {
+                    await this.syncDiscount(id, obj, data, descontar);
+                }
             } else {
                 const aporteRef = await db.collection('inversion_aportes').add(data);
-                if (descontar) {
-                    if (currency === 'USD') {
-                        await db.collection('ahorros').add({
-                            userId,
-                            type: 'retiro',
-                            currency,
-                            amount,
-                            amountARS,
-                            rate,
-                            date,
-                            description: `Inversión: ${(obj && obj.name) || 'objetivo'}`,
-                            inversionAporteId: aporteRef.id,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        if (typeof Ahorro !== 'undefined' && Ahorro.load) await Ahorro.load();
-                        App.toast('Descontado de Ahorro Dólar', 'info');
-                    } else {
-                        const catId = await this.getInversionExpenseCategoryId();
-                        await db.collection('transactions').add({
-                            userId,
-                            type: 'expense',
-                            amount,
-                            categoryId: catId,
-                            description: `Inversión: ${(obj && obj.name) || 'objetivo'}`,
-                            date,
-                            paymentMethod: 'debito',
-                            paid: true,
-                            installments: 1,
-                            inversionAporteId: aporteRef.id,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        if (typeof Transactions !== 'undefined' && Transactions.load) await Transactions.load();
-                        if (App.currentPage === 'home') Dashboard.refresh();
-                        App.toast('Descontado del sueldo', 'info');
-                    }
-                }
+                if (descontar) await this.syncDiscount(aporteRef.id, obj, data, true);
             }
 
             App.toast('Guardado', 'success');
@@ -525,6 +500,101 @@ const Inversiones = {
             App.toast('Error al guardar', 'error');
         } finally {
             if (submitBtn) submitBtn.disabled = false;
+        }
+    },
+
+    async _findLinked(aporteId) {
+        try {
+            const a = await db.collection('ahorros').where('inversionAporteId', '==', aporteId).limit(1).get();
+            if (!a.empty) return { col: 'ahorros', id: a.docs[0].id };
+            const t = await db.collection('transactions').where('inversionAporteId', '==', aporteId).limit(1).get();
+            if (!t.empty) return { col: 'transactions', id: t.docs[0].id };
+            return null;
+        } catch (e) {
+            console.error('Error finding linked discount:', e);
+            return null;
+        }
+    },
+
+    async _addDiscountAsAhorro(aporteId, obj, data) {
+        await db.collection('ahorros').add({
+            userId: data.userId,
+            type: 'retiro',
+            currency: data.currency,
+            amount: data.amount,
+            amountARS: data.amountARS,
+            rate: data.rate,
+            date: data.date,
+            description: `Inversión: ${(obj && obj.name) || 'objetivo'}`,
+            inversionAporteId: aporteId,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    },
+
+    async _addDiscountAsTransaction(aporteId, obj, data, catId) {
+        await db.collection('transactions').add({
+            userId: data.userId,
+            type: 'expense',
+            amount: data.amount,
+            categoryId: catId,
+            description: `Inversión: ${(obj && obj.name) || 'objetivo'}`,
+            date: data.date,
+            paymentMethod: 'debito',
+            paid: true,
+            installments: 1,
+            inversionAporteId: aporteId,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    },
+
+    async _deleteLinked(linked) {
+        if (!linked) return;
+        try {
+            await db.collection(linked.col).doc(linked.id).delete();
+        } catch (e) {
+            console.error('Error deleting linked discount:', e);
+        }
+    },
+
+    async syncDiscount(aporteId, obj, data, descontar) {
+        const linked = await this._findLinked(aporteId);
+
+        if (descontar && data.currency === 'USD') {
+            if (linked && linked.col === 'ahorros') {
+                await db.collection('ahorros').doc(linked.id).update({
+                    userId: data.userId, amount: data.amount, amountARS: data.amountARS,
+                    rate: data.rate, date: data.date,
+                    description: `Inversión: ${(obj && obj.name) || 'objetivo'}`
+                });
+            } else {
+                await this._deleteLinked(linked);
+                await this._addDiscountAsAhorro(aporteId, obj, data);
+            }
+            if (typeof Ahorro !== 'undefined' && Ahorro.load) await Ahorro.load();
+            App.toast('Descontado de Ahorro Dólar', 'info');
+        } else if (descontar && data.currency !== 'USD') {
+            const catId = await this.getInversionExpenseCategoryId();
+            if (linked && linked.col === 'transactions') {
+                await db.collection('transactions').doc(linked.id).update({
+                    userId: data.userId, amount: data.amount, categoryId: catId,
+                    date: data.date, paid: true,
+                    description: `Inversión: ${(obj && obj.name) || 'objetivo'}`
+                });
+            } else {
+                await this._deleteLinked(linked);
+                await this._addDiscountAsTransaction(aporteId, obj, data, catId);
+            }
+            if (typeof Transactions !== 'undefined' && Transactions.load) await Transactions.load();
+            if (App.currentPage === 'home') Dashboard.refresh();
+            App.toast('Descontado del sueldo', 'info');
+        } else {
+            if (linked) {
+                await this._deleteLinked(linked);
+                if (linked.col === 'ahorros' && typeof Ahorro !== 'undefined' && Ahorro.load) await Ahorro.load();
+                if (linked.col === 'transactions' && typeof Transactions !== 'undefined' && Transactions.load) await Transactions.load();
+                if (App.currentPage === 'home') Dashboard.refresh();
+                App.toast('Descuento revertido', 'info');
+            }
         }
     },
 
