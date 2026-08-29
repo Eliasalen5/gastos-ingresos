@@ -1113,33 +1113,7 @@ canvas { max-height: 250px; }
     font-size: 0.9rem;
 }
 
-/* ── Ahorro ── */
-.nav-ahorro { color: var(--warning) !important; }
-.nav-ahorro.active { background: rgba(241,196,15,0.15) !important; color: var(--warning) !important; }
-
-.dolar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.dolar-rate {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 16px;
-}
-.dolar-name {
-    font-weight: 600;
-    font-size: 0.9rem;
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.dolar-values { display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.85rem; }
-.dolar-values span { color: var(--muted); }
-.dolar-values b { color: var(--text); font-size: 1rem; }
-.dolar-meta { margin-top: 12px; font-size: 0.75rem; color: var(--muted); }
-@media (max-width: 600px) {
-    .dolar-grid { grid-template-columns: 1fr; }
-}
-
+/* ── Targets de inversión ── */
 .ahorro-target {
     background: var(--surface2);
     border: 1px solid var(--border);
@@ -1193,9 +1167,6 @@ canvas { max-height: 250px; }
     text-align: center;
     transition: all 0.15s;
 }
-.mov-type-btn[data-ahorro-type="deposito"].active { border-color: var(--success); color: var(--success); background: rgba(46,204,113,0.1); }
-.mov-type-btn[data-ahorro-type="retiro"].active { border-color: var(--error); color: var(--error); background: rgba(231,76,60,0.1); }
-.mov-type-btn[data-ahorro-type="cambio"].active { border-color: var(--primary); color: var(--primary); background: rgba(108,99,255,0.1); }
 .mov-type-btn:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
@@ -1325,7 +1296,6 @@ canvas { max-height: 250px; }
     .target-row span:first-child { overflow-wrap: anywhere; text-align: left; }
     .user-bar-group div { flex-wrap: wrap; gap: 4px; }
     .pago-month-label { flex-wrap: wrap; min-width: 0; }
-    .dolar-values { gap: 12px; }
 
     /* Grupos de botones más holgados */
     .mov-type-group { flex-wrap: wrap; }

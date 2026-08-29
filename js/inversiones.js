@@ -1,6 +1,9 @@
 const Inversiones = {
     objetivos: [],
     aportes: [],
+    dolar: { blue: null, oficial: null, source: 'error' },
+    RATE_KEY: 'app_dolar_cache',
+    RATE_TTL: 60 * 60 * 1000,
     _bound: false,
 
     INSTRUMENTOS: [
@@ -29,6 +32,7 @@ const Inversiones = {
         if (m && !m.value) m.value = Utils.currentYearMonth();
         document.getElementById('inv-date').value = Utils.todayStr();
         await this.load();
+        await this.fetchDolar();
         this.resetForm();
         this.render();
     },
@@ -103,8 +107,69 @@ const Inversiones = {
         }
     },
 
+    async fetchDolar() {
+        let cached = null;
+        try { cached = JSON.parse(localStorage.getItem(this.RATE_KEY)) || null; } catch (e) { cached = null; }
+
+        if (cached && cached.blue && cached.fetchedAt && (Date.now() - cached.fetchedAt) < this.RATE_TTL) {
+            this.dolar = { blue: cached.blue, oficial: cached.oficial || null, source: 'cache' };
+            return;
+        }
+
+        try {
+            const res = await fetch('https://dolarapi.com/v1/dolares');
+            const data = await res.json();
+            const blue = data.find(d => d.casa === 'blue');
+            const oficial = data.find(d => d.casa === 'oficial');
+            if (blue) {
+                this.dolar = {
+                    blue: { compra: blue.compra, venta: blue.venta, fecha: blue.fechaActualizacion },
+                    oficial: oficial ? { compra: oficial.compra, venta: oficial.venta, fecha: oficial.fechaActualizacion } : null,
+                    source: 'api'
+                };
+                localStorage.setItem(this.RATE_KEY, JSON.stringify({
+                    blue: this.dolar.blue,
+                    oficial: this.dolar.oficial,
+                    fetchedAt: Date.now()
+                }));
+            }
+        } catch (e) {
+            console.error('Error fetching dolar:', e);
+            if (cached && cached.blue) {
+                this.dolar = { blue: cached.blue, oficial: cached.oficial || null, source: 'cache' };
+            } else {
+                this.dolar = { blue: null, oficial: null, source: 'error' };
+            }
+        }
+    },
+
+    getMonthIncome(userId, prefix) {
+        return Transactions.list
+            .filter(tx => tx.userId === userId && tx.type === 'income' && typeof tx.date === 'string' && tx.date.startsWith(prefix))
+            .filter(tx => {
+                const cat = Categories.getById(tx.categoryId);
+                return cat && cat.name && cat.name.trim().toLowerCase() === 'salario';
+            })
+            .reduce((s, t) => s + (t.amount || 0), 0);
+    },
+
+    getSalaryPayments(userId, prefix) {
+        return Transactions.list
+            .filter(tx => tx.userId === userId && tx.type === 'income' && typeof tx.date === 'string' && tx.date.startsWith(prefix))
+            .filter(tx => {
+                const cat = Categories.getById(tx.categoryId);
+                return cat && cat.name && cat.name.trim().toLowerCase() === 'salario';
+            })
+            .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    },
+
+    getMonthlyTarget(userId, prefix) {
+        const total = this.getMonthIncome(userId, prefix);
+        return Math.round(total * 0.30 * 100) / 100;
+    },
+
     blueRate() {
-        return (typeof Ahorro !== 'undefined' && Ahorro.dolar && Ahorro.dolar.blue) ? Ahorro.dolar.blue.venta : null;
+        return (this.dolar && this.dolar.blue) ? this.dolar.blue.venta : null;
     },
 
     addMonths(dateStr, n) {
@@ -191,11 +256,11 @@ const Inversiones = {
         el.innerHTML = ['nadia', 'elias'].map(u => {
             const name = u === 'nadia' ? 'Nadia' : 'Elias';
             const color = u === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
-            const income = Ahorro.getMonthIncome(u, prefix);
-            const base = Ahorro.getMonthlyTarget(u, prefix);
+            const income = this.getMonthIncome(u, prefix);
+            const base = this.getMonthlyTarget(u, prefix);
             let cobrosHtml = '';
             if (u === 'elias') {
-                const payments = Ahorro.getSalaryPayments(u, prefix);
+                const payments = this.getSalaryPayments(u, prefix);
                 if (payments.length > 0) {
                     cobrosHtml = `<div class="target-row" style="margin-top:2px"><span>30% de cada quincena</span><b></b></div>` +
                         payments.map(p => {
@@ -356,8 +421,6 @@ const Inversiones = {
 
     setType(type) {
         this._formType = type === 'retiro' ? 'retiro' : 'aporte';
-        const descontarGroup = document.getElementById('inv-descontar-group');
-        if (descontarGroup) descontarGroup.classList.toggle('hidden', this._formType === 'retiro');
         const title = document.getElementById('inv-form-title');
         if (title && !document.getElementById('inv-id').value) {
             title.textContent = this._formType === 'retiro' ? 'Registrar retiro' : 'Registrar movimiento';
@@ -365,19 +428,11 @@ const Inversiones = {
         this.updatePreview();
     },
 
-    updateDescontarLabel() {
-        const lbl = document.getElementById('inv-descontar-label');
-        if (!lbl) return;
-        const currency = document.getElementById('inv-currency').value;
-        lbl.textContent = currency === 'USD' ? 'Descontar de Ahorro Dólar' : 'Descontar del sueldo';
-    },
-
     updatePreview() {
         const el = document.getElementById('inv-preview');
         const rateGroup = document.getElementById('inv-rate-group');
         const currency = document.getElementById('inv-currency').value;
         if (rateGroup) rateGroup.classList.toggle('hidden', currency !== 'USD');
-        this.updateDescontarLabel();
 
         const amount = parseFloat(document.getElementById('inv-amount').value) || 0;
         const rate = parseFloat(document.getElementById('inv-rate').value) || this.blueRate() || 0;
@@ -422,12 +477,6 @@ const Inversiones = {
         document.getElementById('inv-date').value = m.date;
         document.getElementById('inv-description').value = m.description || '';
 
-        const descontarCb = document.getElementById('inv-descontar');
-        if (descontarCb && m.type !== 'retiro') {
-            const linked = await this._findLinked(m.id);
-            descontarCb.checked = !!linked;
-        }
-
         this.updatePreview();
         document.getElementById('inv-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
@@ -441,7 +490,6 @@ const Inversiones = {
         const amount = parseFloat(document.getElementById('inv-amount').value);
         const date = document.getElementById('inv-date').value;
         const description = document.getElementById('inv-description').value.trim();
-        const descontar = type === 'aporte' && document.getElementById('inv-descontar').checked;
 
         if (!amount || !objetivoId || !date) {
             App.toast('Completá los campos', 'error');
@@ -481,14 +529,16 @@ const Inversiones = {
             const amountARS = currency === 'USD' ? Math.round(amount * rate * 100) / 100 : Math.round(amount * 100) / 100;
             const data = { userId, objetivoId, type, currency, amount, amountARS, rate, date, description, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
 
+            let idFinal;
             if (id) {
                 await db.collection('inversion_aportes').doc(id).update(data);
-                if (type === 'aporte') {
-                    await this.syncDiscount(id, obj, data, descontar);
-                }
+                idFinal = id;
             } else {
                 const aporteRef = await db.collection('inversion_aportes').add(data);
-                if (descontar) await this.syncDiscount(aporteRef.id, obj, data, true);
+                idFinal = aporteRef.id;
+            }
+            if (type === 'aporte') {
+                await this.syncDiscount(idFinal, obj, data);
             }
 
             App.toast('Guardado', 'success');
@@ -505,8 +555,6 @@ const Inversiones = {
 
     async _findLinked(aporteId) {
         try {
-            const a = await db.collection('ahorros').where('inversionAporteId', '==', aporteId).limit(1).get();
-            if (!a.empty) return { col: 'ahorros', id: a.docs[0].id };
             const t = await db.collection('transactions').where('inversionAporteId', '==', aporteId).limit(1).get();
             if (!t.empty) return { col: 'transactions', id: t.docs[0].id };
             return null;
@@ -516,26 +564,11 @@ const Inversiones = {
         }
     },
 
-    async _addDiscountAsAhorro(aporteId, obj, data) {
-        await db.collection('ahorros').add({
-            userId: data.userId,
-            type: 'retiro',
-            currency: data.currency,
-            amount: data.amount,
-            amountARS: data.amountARS,
-            rate: data.rate,
-            date: data.date,
-            description: `Inversión: ${(obj && obj.name) || 'objetivo'}`,
-            inversionAporteId: aporteId,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-    },
-
     async _addDiscountAsTransaction(aporteId, obj, data, catId) {
         await db.collection('transactions').add({
             userId: data.userId,
             type: 'expense',
-            amount: data.amount,
+            amount: data.amountARS,
             categoryId: catId,
             description: `Inversión: ${(obj && obj.name) || 'objetivo'}`,
             date: data.date,
@@ -556,46 +589,20 @@ const Inversiones = {
         }
     },
 
-    async syncDiscount(aporteId, obj, data, descontar) {
+    async syncDiscount(aporteId, obj, data) {
         const linked = await this._findLinked(aporteId);
-
-        if (descontar && data.currency === 'USD') {
-            if (linked && linked.col === 'ahorros') {
-                await db.collection('ahorros').doc(linked.id).update({
-                    userId: data.userId, amount: data.amount, amountARS: data.amountARS,
-                    rate: data.rate, date: data.date,
-                    description: `Inversión: ${(obj && obj.name) || 'objetivo'}`
-                });
-            } else {
-                await this._deleteLinked(linked);
-                await this._addDiscountAsAhorro(aporteId, obj, data);
-            }
-            if (typeof Ahorro !== 'undefined' && Ahorro.load) await Ahorro.load();
-            App.toast('Descontado de Ahorro Dólar', 'info');
-        } else if (descontar && data.currency !== 'USD') {
-            const catId = await this.getInversionExpenseCategoryId();
-            if (linked && linked.col === 'transactions') {
-                await db.collection('transactions').doc(linked.id).update({
-                    userId: data.userId, amount: data.amount, categoryId: catId,
-                    date: data.date, paid: true,
-                    description: `Inversión: ${(obj && obj.name) || 'objetivo'}`
-                });
-            } else {
-                await this._deleteLinked(linked);
-                await this._addDiscountAsTransaction(aporteId, obj, data, catId);
-            }
-            if (typeof Transactions !== 'undefined' && Transactions.load) await Transactions.load();
-            if (App.currentPage === 'home') Dashboard.refresh();
-            App.toast('Descontado del sueldo', 'info');
+        const catId = await this.getInversionExpenseCategoryId();
+        const desc = `Inversión: ${(obj && obj.name) || 'objetivo'}`;
+        if (linked) {
+            await db.collection('transactions').doc(linked.id).update({
+                userId: data.userId, amount: data.amountARS, categoryId: catId,
+                date: data.date, paid: true, description: desc
+            });
         } else {
-            if (linked) {
-                await this._deleteLinked(linked);
-                if (linked.col === 'ahorros' && typeof Ahorro !== 'undefined' && Ahorro.load) await Ahorro.load();
-                if (linked.col === 'transactions' && typeof Transactions !== 'undefined' && Transactions.load) await Transactions.load();
-                if (App.currentPage === 'home') Dashboard.refresh();
-                App.toast('Descuento revertido', 'info');
-            }
+            await this._addDiscountAsTransaction(aporteId, obj, data, catId);
         }
+        if (typeof Transactions !== 'undefined' && Transactions.load) await Transactions.load();
+        if (App.currentPage === 'home') Dashboard.refresh();
     },
 
     async getInversionExpenseCategoryId() {
@@ -618,40 +625,22 @@ const Inversiones = {
     async revertLinkedDiscount(aporteId, m) {
         const linked = [];
         try {
-            const snapA = await db.collection('ahorros').where('inversionAporteId', '==', aporteId).get();
-            snapA.forEach(d => linked.push({ col: 'ahorros', id: d.id }));
             const snapT = await db.collection('transactions').where('inversionAporteId', '==', aporteId).get();
             snapT.forEach(d => linked.push({ col: 'transactions', id: d.id }));
 
-            const isAporte = !m || !m.type || m.type === 'aporte';
-            if (linked.length === 0 && isAporte && m) {
-                if (m && m.currency === 'USD') {
-                    const snap = await db.collection('ahorros')
-                        .where('userId', '==', m.userId)
-                        .where('date', '==', m.date)
-                        .where('amount', '==', m.amount)
-                        .where('type', '==', 'retiro')
-                        .get();
-                    snap.forEach(d => {
-                        const dd = d.data();
-                        if (!dd.inversionAporteId && (dd.description || '').startsWith('Inversión:')) {
-                            linked.push({ col: 'ahorros', id: d.id });
-                        }
-                    });
-                } else if (m) {
-                    const snap = await db.collection('transactions')
-                        .where('userId', '==', m.userId)
-                        .where('date', '==', m.date)
-                        .where('amount', '==', m.amount)
-                        .where('type', '==', 'expense')
-                        .get();
-                    snap.forEach(d => {
-                        const dd = d.data();
-                        if (!dd.inversionAporteId && (dd.description || '').startsWith('Inversión:')) {
-                            linked.push({ col: 'transactions', id: d.id });
-                        }
-                    });
-                }
+            if (linked.length === 0 && m && m.type !== 'retiro') {
+                const snap = await db.collection('transactions')
+                    .where('userId', '==', m.userId)
+                    .where('date', '==', m.date)
+                    .where('amount', '==', m.amount)
+                    .where('type', '==', 'expense')
+                    .get();
+                snap.forEach(d => {
+                    const dd = d.data();
+                    if (!dd.inversionAporteId && (dd.description || '').startsWith('Inversión:')) {
+                        linked.push({ col: 'transactions', id: d.id });
+                    }
+                });
             }
 
             for (const l of linked) {
@@ -666,7 +655,7 @@ const Inversiones = {
 
     async deleteMove(id) {
         const m = this.aportes.find(x => x.id === id);
-        if (!confirm(m && m.type !== 'retiro' ? '¿Eliminar aporte? Si fue descontado del sueldo o del ahorro, se revertirá el descuento.' : '¿Eliminar movimiento?')) return;
+        if (!confirm(m && m.type !== 'retiro' ? '¿Eliminar aporte? Se revertirá el descuento del sueldo.' : '¿Eliminar movimiento?')) return;
         try {
             await db.collection('inversion_aportes').doc(id).delete();
             const reverted = await this.revertLinkedDiscount(id, m);
@@ -674,7 +663,6 @@ const Inversiones = {
             await this.load();
             this.render();
             if (typeof Transactions !== 'undefined' && Transactions.load) await Transactions.load();
-            if (typeof Ahorro !== 'undefined' && Ahorro.load) await Ahorro.load();
             if (App.currentPage === 'home') Dashboard.refresh();
         } catch (e) {
             console.error(e);

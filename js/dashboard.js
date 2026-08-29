@@ -41,9 +41,8 @@ const Dashboard = {
         const txs = Transactions.list.filter(tx => tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(prefix));
         const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expense = txs.filter(t => t.type === 'expense' && t.paid !== false).reduce((s, t) => s + t.amount, 0);
-        const saved = typeof Ahorro !== 'undefined' && Ahorro.getMonthSaved ? Ahorro.getMonthSaved(userId, prefix) : 0;
 
-        document.getElementById('balance-amount').textContent = Utils.formatMoney(income - expense - saved);
+        document.getElementById('balance-amount').textContent = Utils.formatMoney(income - expense);
         document.getElementById('income-amount').textContent = Utils.formatMoney(income);
         document.getElementById('expense-amount').textContent = Utils.formatMoney(expense);
 
@@ -185,9 +184,8 @@ const Dashboard = {
         const txs = Transactions.list.filter(tx => typeof tx.date === 'string' && tx.date.startsWith(prefix));
         const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
         const expense = txs.filter(t => t.type === 'expense' && t.paid !== false).reduce((s, t) => s + t.amount, 0);
-        const saved = typeof Ahorro !== 'undefined' && Ahorro.getMonthSavedAll ? Ahorro.getMonthSavedAll(prefix) : 0;
 
-        document.getElementById('grupal-balance').textContent = Utils.formatMoney(income - expense - saved);
+        document.getElementById('grupal-balance').textContent = Utils.formatMoney(income - expense);
         document.getElementById('grupal-income').textContent = Utils.formatMoney(income);
         document.getElementById('grupal-expense').textContent = Utils.formatMoney(expense);
 
