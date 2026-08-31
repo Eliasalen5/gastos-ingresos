@@ -298,8 +298,10 @@ body {
     border: none;
     color: var(--text);
     font-size: 1.2rem;
+    line-height: 1;
     cursor: pointer;
     padding: 4px;
+    margin-top: 2px;
 }
 
 /* ── Content ── */
