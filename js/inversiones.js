@@ -59,15 +59,15 @@ const Inversiones = {
             const snap = await db.collection('inversion_objetivos').get();
             this.objetivos = [];
             snap.forEach(doc => this.objetivos.push({ id: doc.id, ...doc.data() }));
-            if (this.objetivos.length === 0) {
-                for (const obj of this.DEFAULTS) {
-                    await db.collection('inversion_objetivos').doc(obj.id).set({
-                        name: obj.name, icon: obj.icon, color: obj.color, pct: obj.pct, order: obj.order, plazo: obj.plazo,
-                        metodo: obj.metodo, metodoDetalle: '', monedaSugerida: obj.monedaSugerida,
-                        startDate: Utils.todayStr(), lockMeses: obj.lockMeses, freqRetiroMeses: obj.freqRetiroMeses
-                    });
-                }
-                this.objetivos = this.DEFAULTS.map(o => ({ ...o, startDate: Utils.todayStr(), metodoDetalle: '' }));
+            const existingIds = this.objetivos.map(o => o.id);
+            for (const obj of this.DEFAULTS) {
+                if (existingIds.includes(obj.id)) continue;
+                await db.collection('inversion_objetivos').doc(obj.id).set({
+                    name: obj.name, icon: obj.icon, color: obj.color, pct: obj.pct, order: obj.order, plazo: obj.plazo,
+                    metodo: obj.metodo, metodoDetalle: '', monedaSugerida: obj.monedaSugerida,
+                    startDate: Utils.todayStr(), lockMeses: obj.lockMeses, freqRetiroMeses: obj.freqRetiroMeses
+                });
+                this.objetivos.push({ id: obj.id, ...obj, startDate: Utils.todayStr(), metodoDetalle: '' });
             }
             this.objetivos.sort((a, b) => (a.order || 99) - (b.order || 99));
 
