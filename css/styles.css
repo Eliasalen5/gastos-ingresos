@@ -300,8 +300,12 @@ body {
     font-size: 1.2rem;
     line-height: 1;
     cursor: pointer;
-    padding: 4px;
-    margin-top: 2px;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* ── Content ── */
@@ -884,7 +888,7 @@ canvas { max-height: 250px; }
     }
     .sidebar.open { transform: translateX(0); }
     .main { margin-left: 0; }
-    #menu-toggle { display: block; }
+    #menu-toggle { display: flex; }
     .topbar-avatar { display: flex; }
     .content { padding: 16px; padding-bottom: calc(var(--bottom-h) + 16px); }
 
