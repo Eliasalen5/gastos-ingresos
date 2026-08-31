@@ -20,10 +20,7 @@ const Inversiones = {
         { id: 'inv_emergencia', name: 'Fondo de emergencia', icon: 'fa-umbrella', color: '#E74C3C', pct: 25, order: 1, plazo: null, metodo: 'efectivo', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 0, freqRetiroMeses: 0 },
         { id: 'inv_hijo', name: 'Futuro de nuestro hijo', icon: 'fa-baby', color: '#FF6B9D', pct: 20, order: 2, plazo: null, metodo: 'usd_billete', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 12, freqRetiroMeses: 12 },
         { id: 'inv_jubilacion', name: 'Jubilación', icon: 'fa-umbrella-beach', color: '#2ECC71', pct: 15, order: 3, plazo: null, metodo: 'sp500', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 0, freqRetiroMeses: 0 },
-        { id: 'inv_serrucho', name: 'Inversión serrucho (vacaciones)', icon: 'fa-plane', color: '#3498DB', pct: 15, order: 4, plazo: '1 año', metodo: 'usd_billete', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 12, freqRetiroMeses: 0 },
-        { id: 'inv_2anios', name: 'Inversión a 2 años', icon: 'fa-hourglass-half', color: '#9B59B6', pct: 10, order: 5, plazo: '2 años', metodo: 'plazo_fijo', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 24, freqRetiroMeses: 0 },
-        { id: 'inv_5anios', name: 'Inversión a 5 años', icon: 'fa-seedling', color: '#1ABC9C', pct: 10, order: 6, plazo: '5 años', metodo: 'cedears', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 60, freqRetiroMeses: 0 },
-        { id: 'inv_10anios', name: 'Inversión a 10 años', icon: 'fa-tree', color: '#27AE60', pct: 5, order: 7, plazo: '10 años', metodo: 'sp500', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 120, freqRetiroMeses: 0 }
+        { id: 'inv_serrucho', name: 'Inversión serrucho (vacaciones)', icon: 'fa-plane', color: '#3498DB', pct: 15, order: 4, plazo: '1 año', metodo: 'usd_billete', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 12, freqRetiroMeses: 0 }
     ],
 
     async init() {
@@ -73,6 +70,8 @@ const Inversiones = {
             }
             this.objetivos.sort((a, b) => (a.order || 99) - (b.order || 99));
 
+            await this.purgeRemovedObjetivos();
+
             await this.migrateObjetivos();
 
             const snap2 = await db.collection('inversion_aportes').orderBy('date', 'desc').limit(1000).get();
@@ -83,6 +82,28 @@ const Inversiones = {
             if (this.objetivos.length === 0) this.objetivos = [...this.DEFAULTS];
             this.aportes = [];
         }
+    },
+
+    async purgeRemovedObjetivos() {
+        const removedIds = ['inv_2anios', 'inv_5anios', 'inv_10anios'];
+        const toRemove = this.objetivos.filter(o => removedIds.includes(o.id));
+        if (toRemove.length === 0) return;
+        for (const o of toRemove) {
+            try {
+                const aportesSnap = await db.collection('inversion_aportes').where('objetivoId', '==', o.id).get();
+                const aporteIds = [];
+                aportesSnap.forEach(d => aporteIds.push(d.id));
+                for (const aporteId of aporteIds) {
+                    const txSnap = await db.collection('transactions').where('inversionAporteId', '==', aporteId).get();
+                    txSnap.forEach(d => d.ref.delete());
+                    await db.collection('inversion_aportes').doc(aporteId).delete();
+                }
+                await db.collection('inversion_objetivos').doc(o.id).delete();
+            } catch (e) {
+                console.error('Error purging objetivo:', o.id, e);
+            }
+        }
+        this.objetivos = this.objetivos.filter(o => !removedIds.includes(o.id));
     },
 
     async migrateObjetivos() {
