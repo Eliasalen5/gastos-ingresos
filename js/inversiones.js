@@ -96,7 +96,7 @@ const Inversiones = {
                 aportesSnap.forEach(d => aporteIds.push(d.id));
                 for (const aporteId of aporteIds) {
                     const txSnap = await db.collection('transactions').where('inversionAporteId', '==', aporteId).get();
-                    txSnap.forEach(d => d.ref.delete());
+                    await Promise.all(txSnap.docs.map(d => d.ref.delete()));
                     await db.collection('inversion_aportes').doc(aporteId).delete();
                 }
                 await db.collection('inversion_objetivos').doc(o.id).delete();

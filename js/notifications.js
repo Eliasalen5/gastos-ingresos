@@ -112,11 +112,14 @@ const Notifications = {
         }
 
         if (userId === 'elias') {
-            const early = Utils.getNthBusinessDay(now.getFullYear(), now.getMonth() + 1, 1, 3);
-            const late = Utils.getNthBusinessDay(now.getFullYear(), now.getMonth() + 1, 16, 3);
-            const nextEarly = Utils.getNthBusinessDay(now.getFullYear(), now.getMonth() + 2, 1, 3);
-            const candidates = [early, late, nextEarly].filter(d => d >= today);
-            return candidates[0] || nextEarly;
+            const y = now.getFullYear();
+            const m = now.getMonth() + 1;
+            const earlyThis = Utils.getNthBusinessDay(y, m, 1, 3);
+            const lateThis = Utils.getNthBusinessDay(y, m, 16, 3);
+            const earlyNext = Utils.getNthBusinessDay(y, m + 1, 1, 3);
+            const lateNext = Utils.getNthBusinessDay(y, m + 1, 16, 3);
+            const candidates = [earlyThis, lateThis, earlyNext, lateNext].filter(d => d >= today);
+            return candidates[0] || earlyNext;
         }
         return null;
     },

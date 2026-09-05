@@ -76,8 +76,9 @@ async function addTransaction({ userId, type, amount, categoryId, description, d
 }
 
 async function addAporte({ userId, objetivoId, currency, amount, rate, date, description, objetivoName }) {
+    const rateNum = currency === 'USD' ? (rate || 1) : null;
     const amountARS = currency === 'USD'
-        ? round2(amount * rate)
+        ? round2(amount * rateNum)
         : round2(amount);
 
     const aporteRef = await db.collection('inversion_aportes').add({
@@ -87,7 +88,7 @@ async function addAporte({ userId, objetivoId, currency, amount, rate, date, des
         currency,
         amount: round2(amount),
         amountARS,
-        rate: currency === 'USD' ? rate : null,
+        rate: rateNum,
         date,
         description: description || '',
         createdAt: admin.firestore.FieldValue.serverTimestamp()

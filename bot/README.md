@@ -1,16 +1,18 @@
 # Bot de WhatsApp → GastosApp
 
 Conecta el WhatsApp personal de Nadia y Elias como "dispositivo vinculado" (igual que WhatsApp Web).
-Cuando alguien manda un **audio** (o un texto) con un gasto, ingreso o inversión, el bot lo transcribe
-(Gemini, tier gratis), lo interpreta y lo **anota solo en Firestore** (la misma base que usa la app).
-Después confirma por WhatsApp:
+Cada persona se envía a sí misma una **nota de voz** en su chat de **Mensajes guardados**
+(chat con tu propio número) y el bot la transcribe (Gemini, tier gratis), la interpreta
+y la **anota solo en Firestore** (la misma base que usa la app). Después confirma por WhatsApp:
 
 ```
-✅ Gasto anotado: $5.000 · Supermercado · nadia
+✅ Gasto anotado: $5.000 · Supermercado · elias
 ```
 
 - Funciona con tu número personal; el celu sigue andando normal.
-- Solo responde a los 2 números configurados. Nadie más puede disparar nada.
+- **Regla de captura (única)**: solo audios que el número vinculado se envía a **sí mismo**
+  (Mensajes guardados). Nada más: ni textos, ni audios a otros chats o grupos, y los mensajes
+  de otras personas se ignoran por completo.
 - Es gratis (Gemini free tier + Firebase free + Oracle free tier).
 
 ## Requisitos
@@ -28,8 +30,17 @@ cp .env.example .env        # poné tu GEMINI_API_KEY
 cp config.example.json config.json
 ```
 
-En **config.json** reemplazá los números por los de WhatsApp de cada uno
-(con código de país, sin "+" ni espacios; ej. `"5491155551234": "nadia"`).
+En **config.json** hay un arreglo `devices` (uno por WhatsApp vinculado).
+Cada entrada tiene:
+
+| campo | descripción |
+|---|---|
+| `id` | nombre corto del usuario (`elias`, `nadia`) — es el `userId` con que se anota en Firestore |
+| `number` | número de WhatsApp con código de país, sin "+" ni espacios (ej. `5491155551234`) |
+| `authDir` | carpeta donde se guarda la sesión de ese dispositivo (`auth_info_elias`, `auth_info_nadia`) |
+
+Cada dispositivo usa su **propio número** de WhatsApp real (el bot lo valida al conectar:
+si el QR escaneado no coincide con el `number` configurado, no procesa mensajes).
 
 ### Cuenta de servicio de Firebase
 1. Consola de Firebase → tu proyecto → ⚙️ → Configuración del proyecto → Cuentas de servicio.
@@ -42,10 +53,12 @@ En **config.json** reemplazá los números por los de WhatsApp de cada uno
 node index.js
 ```
 
-En la terminal aparece un **QR**. Escanealo desde el celular:
+Para cada dispositivo sin sesión aparece un **QR** (en la terminal y en
+`http://localhost:3000`). Escanealo desde el celular de ese número:
 **WhatsApp → Ajustes → Dispositivos vinculados → Vincular un dispositivo**.
 
-La sesión queda guardada en `bot/auth_info/` para no pedir el QR de nuevo.
+La sesión de cada dispositivo queda guardada en su `authDir` (p. ej. `bot/auth_info_elias/`)
+para no pedir el QR de nuevo.
 
 ## Despliegue 24/7 en Oracle Cloud (gratis)
 
@@ -58,7 +71,7 @@ sudo apt update && sudo apt install -y nodejs npm git
 sudo npm install -g pm2
 ```
 
-3. Subí la carpeta `bot/` (sin `node_modules`, sin `auth_info`, sin `service-account.json`):
+3. Subí la carpeta `bot/` (sin `node_modules`, sin `auth_info*`, sin `service-account.json`):
 ```bash
 rsync -avz -e ssh ./bot ubuntu@<ip-de-la-vm>:~/bot
 # y después copiar service-account.json + config.json (o editarlos en la VM)
@@ -68,19 +81,20 @@ rsync -avz -e ssh ./bot ubuntu@<ip-de-la-vm>:~/bot
 ```bash
 cd ~/bot
 npm install
-node index.js        # escaneá el QR UNA vez
-# una vez vinculado, detené con Ctrl+C y arrancala con PM2:
+node index.js        # escaneá el QR de cada dispositivo UNA vez
+# una vez vinculados, detené con Ctrl+C y arrancala con PM2:
 pm2 start ecosystem.config.js
 pm2 save
 pm2 startup         # para que arranque sola al reiniciar la VM
 ```
 
-> ⚡ **Importante**: copiá y respaldá `auth_info/` del primer QR. Si se pierde,
+> ⚡ **Importante**: copiá y respaldá cada `auth_info_<id>/` del primer QR. Si se pierde,
 > hay que volver a escanear.
 
 ## Uso diario
 
-Mandá un audio o texto desde WhatsApp, por ejemplo:
+Abrí el chat **Mensajes guardados** de tu número (el chat con vos mismo) y mandá una
+nota de voz, por ejemplo:
 - "gasté quince mil en supermercado"
 - "recibí 100 dólares por freelance"
 - "aporté 50 mil a la jubilación"
@@ -93,8 +107,8 @@ Si no entiende el monto, pregunta en vez de anotar.
 
 ```
 bot/
-├── index.js              # conexión Baileys + manejo de mensajes
-├── config.json           # nros de WhatsApp → usuario (gitignored)
+├── index.js              # una sesión Baileys por dispositivo + regla de captura
+├── config.json           # devices (nº de WhatsApp → usuario), gitignored
 ├── config.example.json
 ├── .env.example          # GEMINI_API_KEY
 ├── ecosystem.config.js   # PM2

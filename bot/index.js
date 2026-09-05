@@ -1,7 +1,9 @@
 require('dotenv').config();
 const path = require('path');
+const http = require('http');
 const pino = require('pino');
 const qrcodeTerminal = require('qrcode-terminal');
+const QRCode = require('qrcode');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, downloadMediaMessage } = require('@whiskeysockets/baileys');
 
 const config = require(path.join(__dirname, 'config.json'));
@@ -10,17 +12,27 @@ const { callGemini, normalizeAmount, getBlueRate } = require('./lib/gemini');
 
 const logger = pino({ level: 'warn' });
 
-let sock = null;
 let context = { categories: [], objectives: [] };
-const USERS_REV = Object.fromEntries(Object.entries(config.users).map(([k, v]) => [v, k]));
+const sessions = new Map(); // id -> { id, sock, selfUser, selfDigits, qr }
 
-function resolveUser(jid) {
-    const phone = String(jid).split('@')[0].replace(/^\+/, '');
-    for (const num of Object.keys(config.users)) {
-        const clean = num.replace(/^\+/, '');
-        if (phone === clean || phone.endsWith(clean) || clean.endsWith(phone) || phone.endsWith(clean.slice(-9)) || clean.endsWith(phone.slice(-9))) {
-            return config.users[num];
-        }
+function localNumber(jid) {
+    return String(jid || '').split('@')[0].split(':')[0].replace(/\D/g, '');
+}
+
+function numDigits(n) {
+    return String(n || '').replace(/\D/g, '');
+}
+
+// Devuelve el id de dispositivo (elias/nadia) cuyo número configurado es `digits`.
+function findUserByNumber(digits) {
+    if (!digits) return null;
+    for (const dev of config.devices || []) {
+        const d = numDigits(dev.number);
+        if (d && digits === d) return dev.id;
+    }
+    for (const dev of config.devices || []) {
+        const d = numDigits(dev.number);
+        if (d && (digits.endsWith(d) || d.endsWith(digits))) return dev.id;
     }
     return null;
 }
@@ -42,7 +54,7 @@ function extractAudio(msg) {
     return null;
 }
 
-async function fetchAudioBuffer(msg) {
+async function fetchAudioBuffer(sock, msg) {
     try {
         return await downloadMediaMessage(msg, 'buffer', {}, {
             logger,
@@ -63,7 +75,7 @@ function formatMoneyARS(n) {
     return '$' + Math.round(n).toLocaleString('es-AR');
 }
 
-async function processMessage(jid, user, msg, texto) {
+async function processMessage(sock, jid, user, msg, texto) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
         await sock.sendMessage(jid, { text: '❌ Falta GEMINI_API_KEY en .env. Revisar la config del bot.' });
@@ -75,7 +87,7 @@ async function processMessage(jid, user, msg, texto) {
     let mimeType = null;
     if (audio) {
         await sock.sendMessage(jid, { text: '🎧 Escuchando el audio…' });
-        const buf = await fetchAudioBuffer(msg);
+        const buf = await fetchAudioBuffer(sock, msg);
         if (!buf) {
             await sock.sendMessage(jid, { text: '❌ No pude descargar el audio. Intentá de nuevo.' });
             return;
@@ -102,7 +114,8 @@ async function processMessage(jid, user, msg, texto) {
     }
 
     const tipo = (parsed.tipo || '').toLowerCase();
-    const values = normalizeAmount(parsed, await getBlueRate());
+    const blue = await getBlueRate();
+    const values = normalizeAmount(parsed, blue);
 
     if (!values || parsed.dudoso) {
         const resp = `🤔 No entendí bien. ¿Podés repetir con monto claro?\nEj: "gasté 15 mil en supermercado" o "aporté 100 dólares a jubilación".`;
@@ -122,12 +135,13 @@ async function processMessage(jid, user, msg, texto) {
                 return;
             }
             const objetivo = context.objectives.find(o => o.id === objetivoId);
+            const rate = values.moneda === 'USD' ? (blue || 1) : null;
             const aporteId = await addAporte({
                 userId: user,
                 objetivoId,
                 currency: values.moneda,
                 amount: values.amount,
-                rate: values.moneda === 'USD' ? (await getBlueRate()) : null,
+                rate,
                 date,
                 description: parsed.descripcion || '',
                 objetivoName: objetivo.name
@@ -156,57 +170,76 @@ async function processMessage(jid, user, msg, texto) {
     }
 }
 
-async function handleIncomingMessage(msg) {
+// Regla de captura: SOLO audios que el número vinculado se envía a sí mismo
+// (chat "Mensajes guardados"). Nada más: ni textos, ni audios a otros chats/grupos,
+// ni mensajes de otras personas.
+async function handleIncomingMessage(session, msg) {
     const jid = msg.key.remoteJid;
-    if (!jid || msg.key.fromMe) return;
+    if (!jid) return;
     if (jid === 'status@broadcast' || jid.endsWith('@newsletter')) return;
-
-    const user = resolveUser(msg.key.participant || msg.key.remoteJid);
-    if (!user) return;
-
-    const texto = extractText(msg);
+    if (!msg.key.fromMe) return;
+    if (!session.selfUser || !session.selfDigits) return;
     const audio = extractAudio(msg);
-    if (!texto && !audio) return;
+    if (!audio) return;
+    if (localNumber(jid) !== session.selfDigits) return;
 
     try {
-        await processMessage(jid, user, msg, texto);
+        await processMessage(session.sock, jid, session.selfUser, msg, '');
     } catch (e) {
         console.error('Error procesando mensaje:', e);
     }
 }
 
-async function connectToWhatsApp() {
-    const { state, saveCreds } = await useMultiFileAuthState(path.join(__dirname, 'auth_info'));
+async function connectDevice(dev) {
+    const authDir = path.join(__dirname, dev.authDir || `auth_info_${dev.id}`);
+    const { state, saveCreds } = await useMultiFileAuthState(authDir);
 
-    sock = makeWASocket({
+    const sock = makeWASocket({
         auth: state,
         logger,
         printQRInTerminal: false,
-        browser: ['GastosApp', 'Chrome', '1.0']
+        browser: [`GastosApp-${dev.id}`, 'Chrome', '1.0']
     });
+
+    const session = { id: dev.id, sock, selfUser: null, selfDigits: null, qr: null };
+    sessions.set(dev.id, session);
 
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         if (qr) {
-            console.log('\n=== Escaneá este QR desde WhatsApp > Dispositivos vinculados ===\n');
+            session.qr = { qr, ts: Date.now(), device: dev.id };
+            QRCode.toDataURL(qr, { width: 256, margin: 1 }).then((url) => { session.qr.dataUrl = url; }).catch(() => { session.qr.dataUrl = ''; });
+            console.log(`\n📱 [${dev.id}] QR listo. Abrí http://localhost:3000 para verlo (escanear con el WhatsApp de ${dev.id}).\n`);
             qrcodeTerminal.generate(qr, { small: true });
             console.log('\n');
         }
         if (connection === 'close') {
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('Conexión cerrada. Reintentando:', shouldReconnect);
+            console.log(`[${dev.id}] Conexión cerrada. Reintentando: ${shouldReconnect}`);
             if (shouldReconnect) {
-                sock = null;
-                connectToWhatsApp();
+                sessions.delete(dev.id);
+                connectDevice(dev);
             } else {
-                console.log('Sesión cerrada. Corré el bot de nuevo para escanear el QR.');
-                process.exit(1);
+                session.selfUser = null;
+                session.selfDigits = null;
+                console.log(`[${dev.id}] Sesión cerrada (logged out). Escaneá el QR de nuevo para vincularla.`);
             }
         }
         if (connection === 'open') {
-            console.log('✅ Conectado a WhatsApp como dispositivo vinculado.');
+            const idDigits = localNumber(sock.user?.id);
+            const usr = findUserByNumber(idDigits);
+            console.log(`✅ [${dev.id}] Conectado a WhatsApp como dispositivo vinculado.`);
+            if (usr === dev.id) {
+                session.selfUser = usr;
+                session.selfDigits = idDigits;
+                console.log(`Bot vinculado: ${usr} (${sock.user.id}).`);
+            } else {
+                session.selfUser = null;
+                session.selfDigits = null;
+                console.log(`⚠️ [${dev.id}] El número vinculado (${idDigits || 'desconocido'}) no coincide con el configurado (${numDigits(dev.number)}). No se procesarán mensajes.`);
+            }
             try {
                 context = await loadContext();
                 console.log(`Contexto cargado: ${context.categories.length} categorías, ${context.objectives.length} objetivos.`);
@@ -217,16 +250,84 @@ async function connectToWhatsApp() {
     });
 
     sock.ev.on('messages.upsert', async (msgs) => {
+        if (msgs.type !== 'notify') return;
         for (const m of msgs.messages) {
-            if (msgs.type === 'notify') {
-                await handleIncomingMessage(m);
-            }
+            await handleIncomingMessage(session, m);
         }
     });
 }
 
+function startQrServer() {
+    const port = Number(process.env.QR_PORT || 3000);
+    http.createServer(async (req, res) => {
+        if (req.url === '/qr') {
+            res.setHeader('Content-Type', 'application/json');
+            const pending = [...sessions.values()].find(s => s.qr && s.qr.qr);
+            if (pending) {
+                res.end(JSON.stringify({ device: pending.id, qr: pending.qr.qr, dataUrl: pending.qr.dataUrl || '', ts: pending.qr.ts }));
+            } else {
+                res.end(JSON.stringify({ device: null, qr: null, dataUrl: '' }));
+            }
+            return;
+        }
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.end(`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Escaneá el QR — GastosApp</title>
+<style>
+body{font-family:system-ui;background:#0b141a;color:#e9edef;display:flex;flex-direction:column;align-items:center;min-height:100vh;margin:0;padding:24px;box-sizing:border-box}
+h1{font-size:20px;margin:8px 0}
+p{color:#8696a0;text-align:center;max-width:420px;line-height:1.5}
+.card{background:#fff;border-radius:12px;padding:18px;margin:12px 0}
+img{width:280px;height:280px;object-fit:contain;display:block}
+.hint{background:#12222b;border:1px solid #1f2c33;border-radius:8px;padding:10px 16px;font-size:14px;line-height:1.6}
+#state{color:#ffd279;font-size:13px;min-height:18px}
+</style>
+</head>
+<body>
+<h1>📱 Escaneá este QR</h1>
+<p id="who">Cargando…</p>
+<p>En tu celu: <b>WhatsApp → Ajustes → Dispositivos vinculados → Vincular un dispositivo</b> y escaneá el QR.</p>
+<div class="card"><img id="qr" src="" alt="QR"></div>
+<div class="hint">El QR se <b>actualiza solo</b> cada ~20 s. Si vence antes de escanear, esperá al siguiente.</div>
+<p id="state">Cargando QR…</p>
+<script>
+async function refresh() {
+  try {
+    const r = await fetch('/qr');
+    const d = await r.json();
+    const img = document.getElementById('qr');
+    if (d.qr && d.dataUrl) {
+      img.src = d.dataUrl;
+      document.getElementById('who').textContent = 'Dispositivo: ' + (d.device || '?');
+      document.getElementById('state').textContent = 'QR listo. Escanealo con ese WhatsApp.';
+    } else if (d.qr) {
+      document.getElementById('who').textContent = 'Dispositivo: ' + (d.device || '?');
+      document.getElementById('state').textContent = 'Generando imagen del QR…';
+    } else {
+      document.getElementById('state').textContent = 'Conectado — sin QR (todas las sesiones vinculadas).';
+    }
+  } catch (e) {
+    document.getElementById('state').textContent = 'Esperando al bot…';
+  }
+}
+refresh();
+setInterval(refresh, 3000);
+</script>
+</html>`);
+    }).listen(port, '127.0.0.1', () => {
+        console.log(`🌐 Abrí http://localhost:${port} en el navegador para escanear el QR.`);
+    });
+}
+
 initFirestore();
-connectToWhatsApp();
+startQrServer();
+for (const dev of config.devices || []) {
+    connectDevice(dev);
+}
 
 process.on('SIGINT', () => { console.log('\nBot detenido.'); process.exit(0); });
 process.on('unhandledRejection', (e) => console.error('unhandledRejection:', e.message));

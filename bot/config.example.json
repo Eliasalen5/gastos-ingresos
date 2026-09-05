@@ -1,8 +1,16 @@
 {
-  "users": {
-    "5491100000000": "nadia",
-    "5491100000001": "elias"
-  },
+  "devices": [
+    {
+      "id": "elias",
+      "number": "5491100000001",
+      "authDir": "auth_info_elias"
+    },
+    {
+      "id": "nadia",
+      "number": "5491100000000",
+      "authDir": "auth_info_nadia"
+    }
+  ],
   "defaultCurrency": "ARS",
-  "geminiModel": "gemini-2.5-flash"
+  "geminiModel": "gemini-3.6-flash"
 }

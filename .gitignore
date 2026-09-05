@@ -5,7 +5,7 @@ node_modules/
 
 # Bot de WhatsApp: datos sensibles locales
 bot/node_modules/
-bot/auth_info/
+bot/auth_info*/
 bot/service-account.json
 bot/.env
 bot/config.json
