@@ -1,0 +1,17 @@
+{
+  "name": "gastos-bot",
+  "version": "1.0.0",
+  "description": "Bot de WhatsApp que anota gastos, ingresos e inversiones en GastosApp",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.18",
+    "dotenv": "^16.4.5",
+    "firebase-admin": "^13.0.0",
+    "pino": "^9.5.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

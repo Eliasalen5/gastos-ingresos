@@ -1,0 +1,8 @@
+{
+  "users": {
+    "5491100000000": "nadia",
+    "5491100000001": "elias"
+  },
+  "defaultCurrency": "ARS",
+  "geminiModel": "gemini-2.5-flash"
+}
