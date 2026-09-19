@@ -1,9 +1,6 @@
 const Inversiones = {
     objetivos: [],
     aportes: [],
-    dolar: { blue: null, oficial: null, source: 'error' },
-    RATE_KEY: 'app_dolar_cache',
-    RATE_TTL: 60 * 60 * 1000,
     _bound: false,
 
     INSTRUMENTOS: [
@@ -18,9 +15,9 @@ const Inversiones = {
 
     DEFAULTS: [
         { id: 'inv_emergencia', name: 'Fondo de emergencia', icon: 'fa-umbrella', color: '#E74C3C', pct: 25, order: 1, plazo: null, metodo: 'efectivo', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 0, freqRetiroMeses: 0 },
-        { id: 'inv_hijo', name: 'Futuro de nuestro hijo', icon: 'fa-baby', color: '#FF6B9D', pct: 20, order: 2, plazo: null, metodo: 'usd_billete', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 12, freqRetiroMeses: 12 },
-        { id: 'inv_jubilacion', name: 'Jubilación', icon: 'fa-umbrella-beach', color: '#2ECC71', pct: 15, order: 3, plazo: null, metodo: 'sp500', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 0, freqRetiroMeses: 0 },
-        { id: 'inv_serrucho', name: 'Inversión serrucho (vacaciones)', icon: 'fa-plane', color: '#3498DB', pct: 15, order: 4, plazo: '1 año', metodo: 'usd_billete', metodoDetalle: '', monedaSugerida: 'USD', lockMeses: 12, freqRetiroMeses: 0 },
+        { id: 'inv_hijo', name: 'Futuro de nuestro hijo', icon: 'fa-baby', color: '#FF6B9D', pct: 20, order: 2, plazo: null, metodo: 'usd_billete', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 12, freqRetiroMeses: 12 },
+        { id: 'inv_jubilacion', name: 'Jubilación', icon: 'fa-umbrella-beach', color: '#2ECC71', pct: 15, order: 3, plazo: null, metodo: 'sp500', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 0, freqRetiroMeses: 0 },
+        { id: 'inv_serrucho', name: 'Inversión serrucho (vacaciones)', icon: 'fa-plane', color: '#3498DB', pct: 15, order: 4, plazo: '1 año', metodo: 'usd_billete', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 12, freqRetiroMeses: 0 },
         { id: 'inv_casa', name: 'Futura casa', icon: 'fa-house-chimney', color: '#E67E22', pct: 25, order: 5, plazo: null, metodo: 'plazo_fijo', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 0, freqRetiroMeses: 0 }
     ],
 
@@ -30,7 +27,6 @@ const Inversiones = {
         if (m && !m.value) m.value = Utils.currentYearMonth();
         document.getElementById('inv-date').value = Utils.todayStr();
         await this.load();
-        await this.fetchDolar();
         this.resetForm();
         this.render();
     },
@@ -45,9 +41,7 @@ const Inversiones = {
         document.getElementById('inv-cancel').addEventListener('click', () => this.resetForm());
         document.getElementById('inversiones-month')?.addEventListener('change', () => this.render());
 
-        document.getElementById('inv-currency')?.addEventListener('change', () => this.updatePreview());
         document.getElementById('inv-amount')?.addEventListener('input', () => this.updatePreview());
-        document.getElementById('inv-rate')?.addEventListener('input', () => this.updatePreview());
 
         document.querySelectorAll('#inv-obj-modal .modal-close').forEach(b => b.addEventListener('click', () => this.closeObjModal()));
         document.querySelector('#inv-obj-modal .modal-overlay')?.addEventListener('click', () => this.closeObjModal());
@@ -129,42 +123,6 @@ const Inversiones = {
         }
     },
 
-    async fetchDolar() {
-        let cached = null;
-        try { cached = JSON.parse(localStorage.getItem(this.RATE_KEY)) || null; } catch (e) { cached = null; }
-
-        if (cached && cached.blue && cached.fetchedAt && (Date.now() - cached.fetchedAt) < this.RATE_TTL) {
-            this.dolar = { blue: cached.blue, oficial: cached.oficial || null, source: 'cache' };
-            return;
-        }
-
-        try {
-            const res = await fetch('https://dolarapi.com/v1/dolares');
-            const data = await res.json();
-            const blue = data.find(d => d.casa === 'blue');
-            const oficial = data.find(d => d.casa === 'oficial');
-            if (blue) {
-                this.dolar = {
-                    blue: { compra: blue.compra, venta: blue.venta, fecha: blue.fechaActualizacion },
-                    oficial: oficial ? { compra: oficial.compra, venta: oficial.venta, fecha: oficial.fechaActualizacion } : null,
-                    source: 'api'
-                };
-                localStorage.setItem(this.RATE_KEY, JSON.stringify({
-                    blue: this.dolar.blue,
-                    oficial: this.dolar.oficial,
-                    fetchedAt: Date.now()
-                }));
-            }
-        } catch (e) {
-            console.error('Error fetching dolar:', e);
-            if (cached && cached.blue) {
-                this.dolar = { blue: cached.blue, oficial: cached.oficial || null, source: 'cache' };
-            } else {
-                this.dolar = { blue: null, oficial: null, source: 'error' };
-            }
-        }
-    },
-
     getMonthIncome(userId, prefix) {
         return Transactions.list
             .filter(tx => tx.userId === userId && tx.type === 'income' && typeof tx.date === 'string' && tx.date.startsWith(prefix))
@@ -188,10 +146,6 @@ const Inversiones = {
     getMonthlyTarget(userId, prefix) {
         const total = this.getMonthIncome(userId, prefix);
         return Math.round(total * 0.30 * 100) / 100;
-    },
-
-    blueRate() {
-        return (this.dolar && this.dolar.blue) ? this.dolar.blue.venta : null;
     },
 
     addMonths(dateStr, n) {
@@ -234,29 +188,29 @@ const Inversiones = {
         return { estado: 'libre', fecha: null };
     },
 
+    arsValue(m) {
+        if (m.currency === 'USD') {
+            return m.amountARS != null ? m.amountARS : Math.round((m.amount || 0) * (m.rate || 0) * 100) / 100;
+        }
+        return m.amount || 0;
+    },
+
     getObjetivoTotals(objetivoId) {
-        let ars = 0, usd = 0;
+        let ars = 0;
         this.aportes.forEach(a => {
             if (a.objetivoId !== objetivoId) return;
             const sign = a.type === 'retiro' ? -1 : 1;
-            if (a.currency === 'USD') usd += sign * (a.amount || 0);
-            else ars += sign * (a.amount || 0);
+            ars += sign * this.arsValue(a);
         });
-        return { ars, usd };
+        return ars;
     },
 
     getTotalEquiv() {
-        const blue = this.blueRate();
         let total = 0;
         this.objetivos.forEach(o => {
-            const t = this.getObjetivoTotals(o.id);
-            total += t.ars + (blue ? t.usd * blue : 0);
+            total += this.getObjetivoTotals(o.id);
         });
         return total;
-    },
-
-    fmtUSD(n) {
-        return `U$S ${Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     },
 
     render() {
@@ -319,18 +273,16 @@ const Inversiones = {
     renderObjetivos() {
         const el = document.getElementById('inv-objetivos');
         if (!el) return;
-        const blue = this.blueRate();
         const grandTotal = this.getTotalEquiv();
 
         el.innerHTML = this.objetivos.map(o => {
-            const t = this.getObjetivoTotals(o.id);
-            const equiv = t.ars + (blue ? t.usd * blue : 0);
-            const realPct = grandTotal > 0 ? (equiv / grandTotal * 100) : 0;
+            const total = this.getObjetivoTotals(o.id);
+            const realPct = grandTotal > 0 ? (total / grandTotal * 100) : 0;
             const idealPct = o.pct || 0;
             const plazoBadge = o.plazo ? `<span class="inst-badge">Plazo ${Utils.esc(o.plazo)}</span>` : '';
             const inst = this.INSTRUMENTOS.find(i => i.id === o.metodo);
             const metodoHtml = inst ? `
-                    <div class="inv-metodo"><i class="fas ${inst.icon}"></i> ${Utils.esc(inst.label)}${o.metodoDetalle ? ` · ${Utils.esc(o.metodoDetalle)}` : ''}${o.monedaSugerida ? ` · ${o.monedaSugerida}` : ''}</div>` : '';
+                    <div class="inv-metodo"><i class="fas ${inst.icon}"></i> ${Utils.esc(inst.label)}${o.metodoDetalle ? ` · ${Utils.esc(o.metodoDetalle)}` : ''}</div>` : '';
             const st = this.getWithdrawStatus(o);
             let statusHtml;
             if (st.estado === 'bloqueado') statusHtml = `<div class="inv-lock locked"><i class="fas fa-lock"></i> Disponible desde ${Utils.formatDate(st.fecha)}</div>`;
@@ -348,8 +300,7 @@ const Inversiones = {
                     </div>
                     ${metodoHtml}
                     ${statusHtml}
-                    <div class="target-row"><span>Total aportado (ARS)</span><b>${Utils.formatMoney(t.ars)}</b></div>
-                    <div class="target-row"><span>Total aportado (USD)</span><b style="color:var(--success)">${this.fmtUSD(t.usd)}</b></div>
+                    <div class="target-row"><span>Total aportado</span><b>${Utils.formatMoney(total)}</b></div>
                     <div class="target-row"><span>Peso real en la cartera</span><b>${realPct.toFixed(1)}% (ideal ${idealPct}%)</b></div>
                     <div class="progress-bar inv-bar">
                         <div class="progress-fill" style="width:${Math.min(100, realPct).toFixed(1)}%;background:${o.color}"></div>
@@ -370,22 +321,13 @@ const Inversiones = {
     renderTotals() {
         const el = document.getElementById('inv-totals');
         if (!el) return;
-        let ars = 0, usd = 0;
+        let ars = 0;
         this.objetivos.forEach(o => {
-            const t = this.getObjetivoTotals(o.id);
-            ars += t.ars;
-            usd += t.usd;
+            ars += this.getObjetivoTotals(o.id);
         });
-        const blue = this.blueRate();
-        let equiv = '<span class="muted" style="font-size:0.72rem">Sin cotización disponible</span>';
-        if (blue && blue > 0) {
-            equiv = `<div>En pesos: ${Utils.formatMoney(ars + usd * blue)}</div>
-                <div style="color:var(--success)">En dólares: ${this.fmtUSD(usd + ars / blue)}</div>`;
-        }
         el.innerHTML = `
-            <div class="stat-card"><div class="label">Total invertido en pesos</div><div class="value">${Utils.formatMoney(ars)}</div></div>
-            <div class="stat-card"><div class="label">Total invertido en dólares</div><div class="value" style="color:var(--success)">${this.fmtUSD(usd)}</div></div>
-            <div class="stat-card"><div class="label">Equivalente al Blue de hoy</div><div class="value" style="font-size:0.9rem;line-height:1.6">${equiv}</div></div>`;
+            <div class="stat-card"><div class="label">Total invertido</div><div class="value">${Utils.formatMoney(ars)}</div></div>
+            <div class="stat-card"><div class="label">Moneda</div><div class="value" style="color:var(--success)">Pesos (ARS)</div></div>`;
     },
 
     renderHistory() {
@@ -404,15 +346,14 @@ const Inversiones = {
             const color = isRetiro ? 'var(--error)' : 'var(--success)';
             const icon = isRetiro ? 'fa-arrow-down' : 'fa-arrow-up';
             const label = m.description || (o ? o.name : 'Inversión');
-            const amount = m.currency === 'USD' ? this.fmtUSD(m.amount) : Utils.formatMoney(m.amount);
-            const rateBadge = m.rate ? `<span class="inst-badge">@ ${Utils.formatMoney(m.rate)}</span>` : '';
+            const amount = Utils.formatMoney(this.arsValue(m));
 
             return `
                 <div class="tx-item">
                     <div class="tx-icon" style="background:${o ? o.color : '#95A5A6'}"><i class="fas ${icon}"></i></div>
                     <div class="tx-info">
-                        <div class="tx-desc">${Utils.esc(label)} ${rateBadge}${isRetiro ? '' : '<span class="pending-badge">Aporte</span>'}</div>
-                        <div class="tx-meta"><span class="user-dot" style="background:${ucolor}"></span> ${user} · ${Utils.formatDate(m.date)} · ${m.currency || 'ARS'}</div>
+                        <div class="tx-desc">${Utils.esc(label)}${isRetiro ? '' : '<span class="pending-badge">Aporte</span>'}</div>
+                        <div class="tx-meta"><span class="user-dot" style="background:${ucolor}"></span> ${user} · ${Utils.formatDate(m.date)}</div>
                     </div>
                     <div class="tx-right">
                         <div class="tx-value" style="color:${color}">${isRetiro ? '-' : '+'}${amount}</div>
@@ -447,24 +388,18 @@ const Inversiones = {
         if (title && !document.getElementById('inv-id').value) {
             title.textContent = this._formType === 'retiro' ? 'Registrar retiro' : 'Registrar movimiento';
         }
+        const btn = document.getElementById('inv-type-btn');
+        if (btn) {
+            const isRetiro = this._formType === 'retiro';
+            btn.classList.toggle('active', isRetiro);
+            btn.innerHTML = isRetiro ? '<i class="fas fa-arrow-down"></i> Retirar' : '<i class="fas fa-arrow-up"></i> Aportar';
+        }
         this.updatePreview();
     },
 
     updatePreview() {
         const el = document.getElementById('inv-preview');
-        const rateGroup = document.getElementById('inv-rate-group');
-        const currency = document.getElementById('inv-currency').value;
-        if (rateGroup) rateGroup.classList.toggle('hidden', currency !== 'USD');
-
-        const amount = parseFloat(document.getElementById('inv-amount').value) || 0;
-        const rate = parseFloat(document.getElementById('inv-rate').value) || this.blueRate() || 0;
-        if (currency === 'USD' && amount > 0 && rate > 0) {
-            el.textContent = `≈ ${Utils.formatMoney(Math.round(amount * rate * 100) / 100)} en pesos`;
-        } else if (currency === 'ARS' && amount > 0 && rate > 0) {
-            el.textContent = `≈ ${this.fmtUSD(Math.round(amount / rate * 100) / 100)}`;
-        } else {
-            el.textContent = '';
-        }
+        if (el) el.textContent = '';
     },
 
     resetForm() {
@@ -475,7 +410,6 @@ const Inversiones = {
         this.setType('aporte');
         this.updateObjetivoSelect();
         document.getElementById('inv-date').value = Utils.todayStr();
-        document.getElementById('inv-rate').value = this.blueRate() || '';
         this.updatePreview();
     },
 
@@ -493,9 +427,7 @@ const Inversiones = {
         this.updateObjetivoSelect();
         document.getElementById('inv-objetivo').value = m.objetivoId;
         document.getElementById('inv-user').value = m.userId || 'nadia';
-        document.getElementById('inv-currency').value = m.currency || 'ARS';
-        document.getElementById('inv-amount').value = m.amount;
-        document.getElementById('inv-rate').value = m.rate || (this.blueRate() || '');
+        document.getElementById('inv-amount').value = m.currency === 'USD' ? this.arsValue(m) : m.amount;
         document.getElementById('inv-date').value = m.date;
         document.getElementById('inv-description').value = m.description || '';
 
@@ -508,7 +440,6 @@ const Inversiones = {
         const type = this._formType || 'aporte';
         const objetivoId = document.getElementById('inv-objetivo').value;
         const userId = document.getElementById('inv-user').value;
-        const currency = document.getElementById('inv-currency').value;
         const amount = parseFloat(document.getElementById('inv-amount').value);
         const date = document.getElementById('inv-date').value;
         const description = document.getElementById('inv-description').value.trim();
@@ -530,26 +461,13 @@ const Inversiones = {
             }
         }
 
-        if (!id && obj && obj.monedaSugerida && currency !== obj.monedaSugerida) {
-            if (!confirm(`"${obj.name}" se ahorra en ${obj.monedaSugerida}. ¿Cargar en ${currency} igual?`)) return;
-        }
-
-        let rate = null;
-        if (currency === 'USD') {
-            rate = parseFloat(document.getElementById('inv-rate').value) || this.blueRate();
-            if (!rate || rate <= 0) {
-                App.toast('Indicá el tipo de cambio del dólar', 'error');
-                return;
-            }
-        }
-
         const submitBtn = document.querySelector('#inv-form button[type="submit"]');
         if (submitBtn && submitBtn.disabled) return;
         if (submitBtn) submitBtn.disabled = true;
 
         try {
-            const amountARS = currency === 'USD' ? Math.round(amount * rate * 100) / 100 : Math.round(amount * 100) / 100;
-            const data = { userId, objetivoId, type, currency, amount, amountARS, rate, date, description, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+            const amountARS = Math.round(amount * 100) / 100;
+            const data = { userId, objetivoId, type, currency: 'ARS', amount, amountARS, date, description, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
 
             let idFinal;
             if (id) {
@@ -703,7 +621,6 @@ const Inversiones = {
         document.getElementById('io-pct').value = o.pct != null ? o.pct : '';
         document.getElementById('io-plazo').value = o.plazo || '';
         document.getElementById('io-detalle').value = o.metodoDetalle || '';
-        document.getElementById('io-moneda').value = o.monedaSugerida || 'ARS';
         document.getElementById('io-lock').value = o.lockMeses || 0;
         document.getElementById('io-freq').value = o.freqRetiroMeses || 0;
         const base = this.firstAporteDate(o.id);
@@ -731,7 +648,7 @@ const Inversiones = {
             plazo: document.getElementById('io-plazo').value.trim() || null,
             metodo: document.getElementById('io-metodo').value,
             metodoDetalle: document.getElementById('io-detalle').value.trim(),
-            monedaSugerida: document.getElementById('io-moneda').value,
+            monedaSugerida: 'ARS',
             lockMeses: Math.max(0, parseInt(document.getElementById('io-lock').value, 10) || 0),
             freqRetiroMeses: Math.max(0, parseInt(document.getElementById('io-freq').value, 10) || 0)
         };

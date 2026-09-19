@@ -116,7 +116,12 @@ const Transactions = {
             const receiptFile = document.getElementById('tx-receipt').files[0];
             let receiptUrl = null;
             if (receiptFile) {
-                receiptUrl = await StorageManager.upload(receiptFile, id || 'new');
+                const up = await StorageManager.upload(receiptFile, id || 'new');
+                if (!up.ok) {
+                    App.toast('No se pudo subir el comprobante. Intentá de nuevo', 'error');
+                    return;
+                }
+                receiptUrl = up.url;
             }
 
             if (id) {
@@ -272,7 +277,17 @@ const Transactions = {
         document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
         document.querySelector(`.type-btn[data-type="${tx.type}"]`).classList.add('active');
         this.updateCategorySelect();
-        document.getElementById('tx-category').value = tx.categoryId;
+        const sel = document.getElementById('tx-category');
+        if (![...sel.options].some(o => o.value === tx.categoryId)) {
+            const cat = Categories.getById(tx.categoryId);
+            if (cat) {
+                const opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = cat.name;
+                sel.appendChild(opt);
+            }
+        }
+        sel.value = tx.categoryId;
         this.updateDescriptionRequired();
 
         document.getElementById('tx-amount').value = tx.amount;
@@ -385,8 +400,8 @@ const Transactions = {
         const filtered = this.getFiltered().slice().sort((a, b) => {
             const d = (b.date || '').localeCompare(a.date || '');
             if (d !== 0) return d;
-            const aTime = (a.createdAt && a.createdAt.seconds) || 0;
-            const bTime = (b.createdAt && b.createdAt.seconds) || 0;
+            const aTime = (a.createdAt && (a.createdAt.seconds || 0)) || 0;
+            const bTime = (b.createdAt && (b.createdAt.seconds || 0)) || 0;
             if (bTime !== aTime) return bTime - aTime;
             return (a.installmentNum || 0) - (b.installmentNum || 0);
         });

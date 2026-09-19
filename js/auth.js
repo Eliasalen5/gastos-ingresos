@@ -32,5 +32,6 @@ const Auth = {
         this.currentUser = null;
         document.getElementById('app').classList.add('hidden');
         document.getElementById('login-screen').classList.add('active');
+        if (typeof Dashboard !== 'undefined' && Dashboard.destroyCharts) Dashboard.destroyCharts();
     }
 };

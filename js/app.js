@@ -96,7 +96,7 @@ const App = {
         if (!el) return;
         const txs = Transactions.list.filter(tx => tx.type === 'income' && tx.userId === Auth.currentUser);
         if (txs.length === 0) {
-            el.innerHTML = '<div class="empty"><i class="fas fa-arrow-down"></i><p>Sin ingresos</p></div>';
+            el.innerHTML = '<div class="empty"><i class="fas fa-arrow-up"></i><p>Sin ingresos</p></div>';
             return;
         }
         el.innerHTML = txs.map(tx => {

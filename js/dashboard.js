@@ -30,6 +30,10 @@ const Dashboard = {
         if (this.charts[key]) { this.charts[key].destroy(); this.charts[key] = null; }
     },
 
+    destroyCharts() {
+        Object.keys(this.charts).forEach(k => this.destroyChart(k));
+    },
+
     _individualMonth() {
         const el = document.getElementById('individual-month');
         return el ? el.value : Utils.currentYearMonth();

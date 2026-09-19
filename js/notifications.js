@@ -11,6 +11,7 @@ const Notifications = {
         this.requestPermission();
         this.listenForNotifications();
         this.fetchNow();
+        this.cleanup();
         this.checkPayday();
         if (this.paydayInterval) clearInterval(this.paydayInterval);
         this.paydayInterval = setInterval(() => this.checkPayday(), 60 * 60 * 1000);
@@ -40,6 +41,35 @@ const Notifications = {
             this.renderBadge();
         } catch (e) {
             console.error('Notif fetch error:', e);
+        }
+    },
+
+    async cleanup() {
+        const user = Auth.currentUser;
+        if (!user) return;
+        const now = Date.now();
+        const readMs = now - 14 * 24 * 60 * 60 * 1000;
+        const unreadMs = now - 90 * 24 * 60 * 60 * 1000;
+        try {
+            const snap = await db.collection('notifications')
+                .where('targetUser', '==', user)
+                .get();
+            const toDelete = [];
+            snap.forEach(d => {
+                const n = d.data();
+                const t = n.date ? new Date(n.date).getTime() : 0;
+                if (isNaN(t)) return;
+                if ((n.read && t < readMs) || t < unreadMs) {
+                    toDelete.push(d.ref);
+                }
+            });
+            for (let i = 0; i < toDelete.length; i += 400) {
+                const batch = db.batch();
+                toDelete.slice(i, i + 400).forEach(ref => batch.delete(ref));
+                await batch.commit();
+            }
+        } catch (e) {
+            console.error('Notif cleanup error:', e);
         }
     },
 
@@ -107,8 +137,9 @@ const Notifications = {
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         if (userId === 'nadia') {
-            const firstDay = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-            return today <= firstDay ? firstDay : new Date(now.getFullYear(), now.getMonth() + 2, 1);
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            if (today.getTime() === firstDay.getTime()) return today;
+            return new Date(now.getFullYear(), now.getMonth() + 1, 1);
         }
 
         if (userId === 'elias') {

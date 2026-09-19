@@ -5,10 +5,11 @@ const StorageManager = {
             const fileName = `${prefix}_${Date.now()}.${ext}`;
             const ref = storage.ref(`receipts/${fileName}`);
             await ref.put(file);
-            return await ref.getDownloadURL();
+            const url = await ref.getDownloadURL();
+            return { ok: true, url };
         } catch (e) {
             console.error('Error uploading:', e);
-            return null;
+            return { ok: false, error: e };
         }
     },
 
