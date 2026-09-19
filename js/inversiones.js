@@ -195,9 +195,19 @@ const Inversiones = {
         return m.amount || 0;
     },
 
-    getObjetivoTotals(objetivoId) {
+    monthPrefix() {
+        const el = document.getElementById('inversiones-month');
+        return el && el.value ? el.value : Utils.currentYearMonth();
+    },
+
+    getMonthAportes(prefix) {
+        const p = prefix || this.monthPrefix();
+        return this.aportes.filter(a => typeof a.date === 'string' && a.date.startsWith(p));
+    },
+
+    getObjetivoTotals(objetivoId, prefix) {
         let ars = 0;
-        this.aportes.forEach(a => {
+        this.getMonthAportes(prefix).forEach(a => {
             if (a.objetivoId !== objetivoId) return;
             const sign = a.type === 'retiro' ? -1 : 1;
             ars += sign * this.arsValue(a);
@@ -205,10 +215,10 @@ const Inversiones = {
         return ars;
     },
 
-    getTotalEquiv() {
+    getTotalEquiv(prefix) {
         let total = 0;
         this.objetivos.forEach(o => {
-            total += this.getObjetivoTotals(o.id);
+            total += this.getObjetivoTotals(o.id, prefix);
         });
         return total;
     },
@@ -228,6 +238,7 @@ const Inversiones = {
         const monthDate = new Date(prefix + '-15T12:00:00');
         const monthLabel = monthDate.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
         const totalPct = this.objetivos.reduce((s, o) => s + (o.pct || 0), 0);
+        const hasAportes = this.getMonthAportes(prefix).length > 0;
 
         el.innerHTML = ['nadia', 'elias'].map(u => {
             const name = u === 'nadia' ? 'Nadia' : 'Elias';
@@ -235,7 +246,7 @@ const Inversiones = {
             const income = this.getMonthIncome(u, prefix);
             const base = this.getMonthlyTarget(u, prefix);
             let cobrosHtml = '';
-            if (u === 'elias') {
+            if (u === 'elias' && hasAportes) {
                 const payments = this.getSalaryPayments(u, prefix);
                 if (payments.length > 0) {
                     cobrosHtml = `<div class="target-row" style="margin-top:2px"><span>30% de cada quincena</span><b></b></div>` +
@@ -252,6 +263,11 @@ const Inversiones = {
                     <b>${Utils.formatMoney(monto)} <span class="muted">(${o.pct || 0}%)</span></b>
                 </div>`;
             }).join('');
+            const invBlock = hasAportes
+                ? `${cobrosHtml}
+                    <div class="target-row"><span>A invertir (30%)</span><b>${Utils.formatMoney(base)}</b></div>
+                    <div style="margin-top:8px">${rows}</div>`
+                : `<div class="target-row"><span>Invertido en el mes</span><b>${Utils.formatMoney(0)}</b></div>`;
             return `
                 <div class="ahorro-target" style="border-left-color:${color}">
                     <div class="target-header">
@@ -259,13 +275,11 @@ const Inversiones = {
                         <span class="muted">${Utils.esc(monthLabel)}</span>
                     </div>
                     <div class="target-row"><span>Salario cobrado</span><b>${Utils.formatMoney(income)}</b></div>
-                    ${cobrosHtml}
-                    <div class="target-row"><span>A invertir (30%)</span><b>${Utils.formatMoney(base)}</b></div>
-                    <div style="margin-top:8px">${rows}</div>
+                    ${invBlock}
                 </div>`;
         }).join('');
 
-        if (totalPct !== 100) {
+        if (hasAportes && totalPct !== 100) {
             el.innerHTML += `<p class="muted" style="margin-top:4px"><i class="fas fa-triangle-exclamation"></i> Los porcentajes suman ${totalPct}% (deberían sumar 100%). Tocá el lápiz en cada objetivo para ajustarlos.</p>`;
         }
     },
@@ -273,10 +287,11 @@ const Inversiones = {
     renderObjetivos() {
         const el = document.getElementById('inv-objetivos');
         if (!el) return;
-        const grandTotal = this.getTotalEquiv();
+        const prefix = this.monthPrefix();
+        const grandTotal = this.getTotalEquiv(prefix);
 
         el.innerHTML = this.objetivos.map(o => {
-            const total = this.getObjetivoTotals(o.id);
+            const total = this.getObjetivoTotals(o.id, prefix);
             const realPct = grandTotal > 0 ? (total / grandTotal * 100) : 0;
             const idealPct = o.pct || 0;
             const plazoBadge = o.plazo ? `<span class="inst-badge">Plazo ${Utils.esc(o.plazo)}</span>` : '';
@@ -321,23 +336,26 @@ const Inversiones = {
     renderTotals() {
         const el = document.getElementById('inv-totals');
         if (!el) return;
+        const prefix = this.monthPrefix();
         let ars = 0;
         this.objetivos.forEach(o => {
-            ars += this.getObjetivoTotals(o.id);
+            ars += this.getObjetivoTotals(o.id, prefix);
         });
         el.innerHTML = `
-            <div class="stat-card"><div class="label">Total invertido</div><div class="value">${Utils.formatMoney(ars)}</div></div>
+            <div class="stat-card"><div class="label">Total invertido en el mes</div><div class="value">${Utils.formatMoney(ars)}</div></div>
             <div class="stat-card"><div class="label">Moneda</div><div class="value" style="color:var(--success)">Pesos (ARS)</div></div>`;
     },
 
     renderHistory() {
         const el = document.getElementById('inv-history');
         if (!el) return;
-        if (this.aportes.length === 0) {
-            el.innerHTML = '<div class="empty"><i class="fas fa-chart-line"></i><p>Sin movimientos de inversión</p></div>';
+        const prefix = this.monthPrefix();
+        const monthAportes = this.getMonthAportes(prefix);
+        if (monthAportes.length === 0) {
+            el.innerHTML = '<div class="empty"><i class="fas fa-chart-line"></i><p>Sin movimientos en este mes</p></div>';
             return;
         }
-        const sorted = [...this.aportes].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        const sorted = [...monthAportes].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
         el.innerHTML = sorted.map(m => {
             const o = this.objetivos.find(x => x.id === m.objetivoId);
             const isRetiro = m.type === 'retiro';
