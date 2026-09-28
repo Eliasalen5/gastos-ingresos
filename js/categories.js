@@ -290,12 +290,6 @@ const Categories = {
         }
     },
 
-    _fallbackCategoryId(cat) {
-        const id = cat.type === 'income' ? 'cat_otros_i' : 'cat_otros_g';
-        if (id === cat.id) return null;
-        return this.getById(id) ? id : null;
-    },
-
     async delete(id) {
         const cat = this.getById(id);
         if (!cat) return;
@@ -303,7 +297,7 @@ const Categories = {
             const snap = await db.collection('transactions').where('categoryId', '==', id).get();
             if (snap.empty) {
                 if (!confirm(`¿Eliminar la categoría "${cat.name}"?`)) return;
-                await this._commitDelete(id, [], null);
+                await this._commitDelete(id);
                 return;
             }
             this._openDeleteModal(cat, snap.size);
@@ -318,20 +312,12 @@ const Categories = {
         if (!modal) return;
         this._pendingDelete = { cat, count };
         const n = count;
-        const fallback = this._fallbackCategoryId(cat) ? this.getById(this._fallbackCategoryId(cat)) : null;
+        const what = cat.type === 'income' ? 'ingreso' : 'gasto';
+        const whatPl = cat.type === 'income' ? 'ingresos' : 'gastos';
         document.getElementById('delete-cat-text').innerHTML =
-            `<strong>${Utils.esc(cat.name)}</strong> tiene ${n} gasto${n === 1 ? '' : 's'} asociado${n === 1 ? '' : 's'}.`;
-        const reassignBtn = document.getElementById('delete-cat-reassign');
-        if (fallback) {
-            document.getElementById('delete-cat-note').innerHTML =
-                `Podés mover esos gastos a <strong>${Utils.esc(fallback.name)}</strong>, o borrar la categoría sola y dejarlos sin categoría (van a figurar como “Otros”).`;
-            reassignBtn.textContent = `Mover a ${fallback.name} y eliminar`;
-            reassignBtn.classList.remove('hidden');
-        } else {
-            document.getElementById('delete-cat-note').textContent =
-                'No hay una categoría de reserva para reasignar: al eliminarla, esos gastos van a figurar como “Otros”.';
-            reassignBtn.classList.add('hidden');
-        }
+            `<strong>${Utils.esc(cat.name)}</strong> tiene ${n} ${what}${n === 1 ? '' : 's'} asociado${n === 1 ? '' : 's'}.`;
+        document.getElementById('delete-cat-note').innerHTML =
+            `Si la eliminás, esos ${whatPl} se quedan sin categoría: van a figurar como <strong>“Otros”</strong> en los filtros y la torta, y no se borran.`;
         modal.classList.remove('hidden');
     },
 
@@ -343,44 +329,16 @@ const Categories = {
     async _onDeleteChoice(choice) {
         const pending = this._pendingDelete;
         if (!pending || choice === 'cancel') { this.closeDeleteModal(); return; }
-        const cat = pending.cat;
-        const catId = cat.id;
-        const hadTxs = pending.count > 0;
+        const catId = pending.cat.id;
         this.closeDeleteModal();
-        try {
-            let txDocs = [];
-            let fallbackId = null;
-            if (hadTxs) {
-                const snap = await db.collection('transactions').where('categoryId', '==', catId).get();
-                txDocs = snap.docs;
-                if (choice === 'reassign') {
-                    fallbackId = this._fallbackCategoryId(cat);
-                    if (!fallbackId) {
-                        App.toast('No hay categoría de reserva', 'error');
-                        return;
-                    }
-                }
-            }
-            await this._commitDelete(catId, txDocs, fallbackId);
-        } catch (e) {
-            console.error('Error al eliminar la categoría:', e);
-            App.toast('Error al eliminar', 'error');
-        }
+        await this._commitDelete(catId);
     },
 
-    async _commitDelete(id, txDocs, fallbackId) {
-        const CHUNK = 400;
+    async _commitDelete(id) {
         try {
-            if (fallbackId && txDocs.length) {
-                for (let i = 0; i < txDocs.length; i += CHUNK) {
-                    const batch = db.batch();
-                    txDocs.slice(i, i + CHUNK).forEach(d => batch.update(d.ref, { categoryId: fallbackId, subcategoryId: '' }));
-                    await batch.commit();
-                }
-            }
             await db.collection('categories').doc(id).delete();
             delete this.expanded[id];
-            App.toast(fallbackId ? 'Categoría eliminada · gastos reasignados' : 'Categoría eliminada', 'success');
+            App.toast('Categoría eliminada', 'success');
             this.closeDeleteModal();
             await this.load();
             this.updateFilterSelect();
