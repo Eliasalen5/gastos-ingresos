@@ -774,6 +774,12 @@ input[type="color"] { width: 40px; height: 36px; border: none; cursor: pointer; 
 .seg-opt.active { background: var(--primary); color: #fff; }
 .chart-toggle { margin-bottom: 14px; }
 
+/* ── Confirm dialog (eliminar categoría en uso) ── */
+.confirm-text { font-size: 0.9rem; margin: 0 0 8px; }
+.confirm-note { font-size: 0.8rem; color: var(--muted); margin: 0 0 16px; }
+.confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.confirm-actions .btn { flex: 1; justify-content: center; }
+
 /* ── Fijos vs Variables widget ── */
 .kv-total { display: flex; align-items: baseline; justify-content: space-between; font-size: 0.78rem; color: var(--muted); margin-bottom: 14px; }
 .kv-total strong { color: var(--text); font-size: 1rem; }

@@ -145,7 +145,14 @@ const Categories = {
                 });
             });
             const grid = document.getElementById('categories-list');
-            if (grid) { grid.addEventListener('click', (e) => this._onGridClick(e)); this._subBound = true; }
+            if (grid) { grid.addEventListener('click', (e) => this._onGridClick(e)); }
+            const delModal = document.getElementById('delete-category-modal');
+            if (delModal) {
+                delModal.querySelectorAll('[data-delete-choice]').forEach(b => b.addEventListener('click', () => this._onDeleteChoice(b.dataset.deleteChoice)));
+                delModal.querySelector('.modal-overlay')?.addEventListener('click', () => this.closeDeleteModal());
+                delModal.querySelectorAll('.modal-close').forEach(b => b.addEventListener('click', () => this.closeDeleteModal()));
+            }
+            this._subBound = true;
         }
         await this.load();
     },
@@ -283,21 +290,105 @@ const Categories = {
         }
     },
 
+    _fallbackCategoryId(cat) {
+        const id = cat.type === 'income' ? 'cat_otros_i' : 'cat_otros_g';
+        if (id === cat.id) return null;
+        return this.getById(id) ? id : null;
+    },
+
     async delete(id) {
         const cat = this.getById(id);
-        if (!confirm(`¿Eliminar la categoría "${cat ? cat.name : ''}"?`)) return;
+        if (!cat) return;
         try {
-            const snap = await db.collection('transactions').where('categoryId', '==', id).limit(1).get();
-            if (!snap.empty) {
-                App.toast('No se puede eliminar: hay transacciones usando esta categoría', 'error');
+            const snap = await db.collection('transactions').where('categoryId', '==', id).get();
+            if (snap.empty) {
+                if (!confirm(`¿Eliminar la categoría "${cat.name}"?`)) return;
+                await this._commitDelete(id, [], null);
                 return;
+            }
+            this._openDeleteModal(cat, snap.size);
+        } catch (e) {
+            console.error('Error al eliminar la categoría:', e);
+            App.toast('Error al eliminar', 'error');
+        }
+    },
+
+    _openDeleteModal(cat, count) {
+        const modal = document.getElementById('delete-category-modal');
+        if (!modal) return;
+        this._pendingDelete = { cat, count };
+        const n = count;
+        const fallback = this._fallbackCategoryId(cat) ? this.getById(this._fallbackCategoryId(cat)) : null;
+        document.getElementById('delete-cat-text').innerHTML =
+            `<strong>${Utils.esc(cat.name)}</strong> tiene ${n} gasto${n === 1 ? '' : 's'} asociado${n === 1 ? '' : 's'}.`;
+        const reassignBtn = document.getElementById('delete-cat-reassign');
+        if (fallback) {
+            document.getElementById('delete-cat-note').innerHTML =
+                `Podés mover esos gastos a <strong>${Utils.esc(fallback.name)}</strong>, o borrar la categoría sola y dejarlos sin categoría (van a figurar como “Otros”).`;
+            reassignBtn.textContent = `Mover a ${fallback.name} y eliminar`;
+            reassignBtn.classList.remove('hidden');
+        } else {
+            document.getElementById('delete-cat-note').textContent =
+                'No hay una categoría de reserva para reasignar: al eliminarla, esos gastos van a figurar como “Otros”.';
+            reassignBtn.classList.add('hidden');
+        }
+        modal.classList.remove('hidden');
+    },
+
+    closeDeleteModal() {
+        document.getElementById('delete-category-modal')?.classList.add('hidden');
+        this._pendingDelete = null;
+    },
+
+    async _onDeleteChoice(choice) {
+        const pending = this._pendingDelete;
+        if (!pending || choice === 'cancel') { this.closeDeleteModal(); return; }
+        const cat = pending.cat;
+        const catId = cat.id;
+        const hadTxs = pending.count > 0;
+        this.closeDeleteModal();
+        try {
+            let txDocs = [];
+            let fallbackId = null;
+            if (hadTxs) {
+                const snap = await db.collection('transactions').where('categoryId', '==', catId).get();
+                txDocs = snap.docs;
+                if (choice === 'reassign') {
+                    fallbackId = this._fallbackCategoryId(cat);
+                    if (!fallbackId) {
+                        App.toast('No hay categoría de reserva', 'error');
+                        return;
+                    }
+                }
+            }
+            await this._commitDelete(catId, txDocs, fallbackId);
+        } catch (e) {
+            console.error('Error al eliminar la categoría:', e);
+            App.toast('Error al eliminar', 'error');
+        }
+    },
+
+    async _commitDelete(id, txDocs, fallbackId) {
+        const CHUNK = 400;
+        try {
+            if (fallbackId && txDocs.length) {
+                for (let i = 0; i < txDocs.length; i += CHUNK) {
+                    const batch = db.batch();
+                    txDocs.slice(i, i + CHUNK).forEach(d => batch.update(d.ref, { categoryId: fallbackId, subcategoryId: '' }));
+                    await batch.commit();
+                }
             }
             await db.collection('categories').doc(id).delete();
             delete this.expanded[id];
-            App.toast('Categoría eliminada', 'success');
+            App.toast(fallbackId ? 'Categoría eliminada · gastos reasignados' : 'Categoría eliminada', 'success');
+            this.closeDeleteModal();
             await this.load();
             this.updateFilterSelect();
+            if (typeof Transactions !== 'undefined' && Transactions.load) await Transactions.load();
+            if (typeof Dashboard !== 'undefined' && Dashboard.refresh) Dashboard.refresh();
+            this.renderGrid();
         } catch (e) {
+            console.error('Error al eliminar la categoría:', e);
             App.toast('Error al eliminar', 'error');
         }
     },

@@ -390,6 +390,24 @@
     </div>
 </div>
 
+<!-- Eliminar categoría Modal -->
+<div class="modal hidden" id="delete-category-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Eliminar categoría</h3>
+            <button class="modal-close"><i class="fas fa-times"></i></button>
+        </div>
+        <p class="confirm-text" id="delete-cat-text"></p>
+        <p class="confirm-note" id="delete-cat-note"></p>
+        <div class="confirm-actions">
+            <button type="button" class="btn btn-ghost" data-delete-choice="cancel">Cancelar</button>
+            <button type="button" class="btn btn-ghost" data-delete-choice="orphan">Eliminar igual</button>
+            <button type="button" class="btn btn-danger" data-delete-choice="reassign" id="delete-cat-reassign">Mover y eliminar</button>
+        </div>
+    </div>
+</div>
+
 <!-- Detalle por categoría Modal -->
 <div class="modal hidden" id="cat-detail-modal">
     <div class="modal-overlay"></div>
