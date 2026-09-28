@@ -31,7 +31,10 @@ const Transactions = {
 
         document.getElementById('tx-installments')?.addEventListener('change', () => this.updatePreview());
         document.getElementById('tx-amount')?.addEventListener('input', () => this.updatePreview());
-        document.getElementById('tx-category')?.addEventListener('change', () => this.updateDescriptionRequired());
+        document.getElementById('tx-category')?.addEventListener('change', () => {
+            this.updateSubcategorySelect();
+            this.updateDescriptionRequired();
+        });
 
         document.getElementById('tx-receipt')?.addEventListener('change', (e) => {
             const p = document.getElementById('receipt-preview');
@@ -43,16 +46,65 @@ const Transactions = {
             }
         });
 
-        ['filter-type', 'filter-category', 'filter-date'].forEach(id => {
-            document.getElementById(id)?.addEventListener('change', () => this.renderList());
+        ['filter-type', 'filter-category', 'filter-kind', 'filter-date'].forEach(id => {
+            document.getElementById(id)?.addEventListener('change', () => {
+                this.toggleKindFilter();
+                this.renderList();
+            });
         });
+        this.toggleKindFilter();
+    },
+
+    toggleKindFilter() {
+        const sel = document.getElementById('filter-kind');
+        if (!sel) return;
+        const isIncome = document.getElementById('filter-type')?.value === 'income';
+        sel.classList.toggle('hidden', isIncome);
+        if (isIncome && sel.value !== 'all') sel.value = 'all';
     },
 
     updateCategorySelect() {
         const type = document.querySelector('.type-btn.active')?.dataset.type;
         const sel = document.getElementById('tx-category');
         sel.innerHTML = Categories.renderSelects(type === 'income' ? 'income' : 'expense');
+        this.updateSubcategorySelect();
         this.updateDescriptionRequired();
+    },
+
+    updateSubcategorySelect(preserveValue) {
+        const group = document.getElementById('subcategory-group');
+        const sel = document.getElementById('tx-subcategory');
+        if (!group || !sel) return;
+        const catId = document.getElementById('tx-category')?.value;
+        const cat = Categories.getById(catId);
+        const subs = (cat && cat.subcategories) || [];
+        if (subs.length === 0) {
+            sel.innerHTML = '';
+            group.classList.add('hidden');
+            this.updateKindHint(catId, '');
+            return;
+        }
+        sel.innerHTML = '<option value="">— Sin subcategoría —</option>' +
+            subs.map(s => `<option value="${s.id}">${Utils.esc(s.name)}</option>`).join('');
+        const value = preserveValue && subs.some(s => s.id === preserveValue) ? preserveValue : '';
+        sel.value = value;
+        group.classList.remove('hidden');
+        this.updateKindHint(catId, value);
+    },
+
+    updateKindHint(categoryId, subcategoryId) {
+        const hint = document.getElementById('tx-kind-hint');
+        if (!hint) return;
+        const cat = Categories.getById(categoryId);
+        if (!cat) { hint.classList.add('hidden'); hint.innerHTML = ''; return; }
+        if (cat.type !== 'expense') { hint.classList.add('hidden'); hint.innerHTML = ''; return; }
+        const kind = Categories.resolveKind(categoryId, subcategoryId);
+        const sub = Categories.getSubcategory(categoryId, subcategoryId);
+        const source = sub
+            ? (sub.kind ? `${cat.name} › ${sub.name}` : `${cat.name} › ${sub.name} (heredada)`)
+            : cat.name;
+        hint.innerHTML = `<span class="kind-pill kind-${kind}"><i class="fas ${kind === 'fixed' ? 'fa-lock' : 'fa-wave-square'}"></i> ${Categories.kindLabel(kind)}</span> Se clasifica como <strong>${Categories.kindLabel(kind)}</strong> · derivado de ${Utils.esc(source)}`;
+        hint.classList.remove('hidden');
     },
 
     updateDescriptionRequired() {
@@ -93,6 +145,7 @@ const Transactions = {
         const type = document.querySelector('.type-btn.active').dataset.type;
         const amount = parseFloat(document.getElementById('tx-amount').value);
         const categoryId = document.getElementById('tx-category').value;
+        const subcategoryId = document.getElementById('tx-subcategory')?.value || '';
         const description = document.getElementById('tx-description').value.trim();
         const date = document.getElementById('tx-date').value;
         const paymentMethod = document.querySelector('.pay-btn.active').dataset.method;
@@ -128,7 +181,7 @@ const Transactions = {
                 const originalTx = this.list.find(t => t.id === id);
                 const sameMethod = originalTx && originalTx.paymentMethod === paymentMethod;
                 const paid = paymentMethod === 'debito' ? true : (sameMethod ? originalTx.paid === true : false);
-                const data = { type, amount, categoryId, description, date, paymentMethod, paid, userId: Auth.currentUser, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+                const data = { type, amount, categoryId, subcategoryId, description, date, paymentMethod, paid, userId: Auth.currentUser, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
                 if (receiptUrl) data.receiptUrl = receiptUrl;
                 await db.collection('transactions').doc(id).update(data);
                 if (originalTx && originalTx.installments > 1) {
@@ -145,7 +198,7 @@ const Transactions = {
                     }
                     if (siblings.length > 0) {
                         const batch = db.batch();
-                        const up = { categoryId };
+                        const up = { categoryId, subcategoryId };
                         if (description) up.description = description;
                         siblings.forEach(sib => batch.update(db.collection('transactions').doc(sib.id), up));
                         await batch.commit();
@@ -164,7 +217,7 @@ const Transactions = {
                     const instDateStr = `${instDate.getFullYear()}-${String(instDate.getMonth() + 1).padStart(2, '0')}-${String(instDate.getDate()).padStart(2, '0')}`;
                     const ref = db.collection('transactions').doc();
                     const data = {
-                        type, amount: installmentAmount, categoryId, description, date: instDateStr,
+                        type, amount: installmentAmount, categoryId, subcategoryId, description, date: instDateStr,
                         paymentMethod, paid: false,
                         installments, installmentNum: i, groupId,
                         userId: Auth.currentUser,
@@ -176,7 +229,7 @@ const Transactions = {
                 await batch.commit();
             } else {
                 const paid = paymentMethod === 'debito';
-                const data = { type, amount, categoryId, description, date, paymentMethod, paid, userId: Auth.currentUser, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+                const data = { type, amount, categoryId, subcategoryId, description, date, paymentMethod, paid, userId: Auth.currentUser, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
                 if (receiptUrl) data.receiptUrl = receiptUrl;
                 await db.collection('transactions').add(data);
             }
@@ -186,8 +239,10 @@ const Transactions = {
             const otherUser = Auth.currentUser === 'nadia' ? 'Elias' : 'Nadia';
             const typeLabel = type === 'expense' ? 'gastó' : 'recibió';
             const cat = Categories.getById(categoryId);
+            const sub = Categories.getSubcategory(categoryId, subcategoryId);
             const title = type === 'expense' ? 'Nuevo gasto' : 'Nuevo ingreso';
-            const detail = `${currentUser} ${typeLabel} ${Utils.formatMoney(amount)} ${description || (cat ? cat.name : '')}`;
+            const label = description || [cat ? cat.name : '', sub ? sub.name : ''].filter(Boolean).join(' › ');
+            const detail = `${currentUser} ${typeLabel} ${Utils.formatMoney(amount)} ${label}`;
             Notifications.add('transaction', title, detail, otherUser.toLowerCase());
             this.resetForm();
             await this.load();
@@ -288,6 +343,7 @@ const Transactions = {
             }
         }
         sel.value = tx.categoryId;
+        this.updateSubcategorySelect(tx.subcategoryId);
         this.updateDescriptionRequired();
 
         document.getElementById('tx-amount').value = tx.amount;
@@ -329,11 +385,13 @@ const Transactions = {
     getFiltered() {
         const type = document.getElementById('filter-type')?.value || 'all';
         const cat = document.getElementById('filter-category')?.value || 'all';
+        const kind = document.getElementById('filter-kind')?.value || 'all';
         const date = document.getElementById('filter-date')?.value || '';
         return this.list.filter(tx => {
             if (tx.userId !== Auth.currentUser) return false;
             if (type !== 'all' && tx.type !== type) return false;
             if (cat !== 'all' && tx.categoryId !== cat) return false;
+            if (kind !== 'all' && Categories.resolveKind(tx.categoryId, tx.subcategoryId) !== kind) return false;
             if (date && typeof tx.date === 'string' && !tx.date.startsWith(date)) return false;
             return true;
         });

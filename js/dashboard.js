@@ -1,6 +1,9 @@
 const Dashboard = {
     charts: {},
+    chartMode: 'category',
     _bound: false,
+
+    KIND_COLORS: { fixed: '#F1C40F', variable: '#6C63FF' },
 
     init() {
         if (this._bound) return;
@@ -15,11 +18,31 @@ const Dashboard = {
             indMonth.value = Utils.currentYearMonth();
             indMonth.addEventListener('change', () => this.renderIndividual());
         }
+        const modeToggle = document.getElementById('chart-mode-toggle');
+        if (modeToggle) {
+            modeToggle.querySelectorAll('.seg-opt').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    modeToggle.querySelectorAll('.seg-opt').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    this.chartMode = btn.dataset.mode;
+                    this._paintChartTitle();
+                    this.renderCategoryChart(Auth.currentUser, this._individualMonth());
+                });
+            });
+            this._paintChartTitle();
+        }
         const catDetailModal = document.getElementById('cat-detail-modal');
         if (catDetailModal) {
             catDetailModal.querySelector('.modal-overlay')?.addEventListener('click', () => catDetailModal.classList.add('hidden'));
             catDetailModal.querySelector('.modal-close')?.addEventListener('click', () => catDetailModal.classList.add('hidden'));
         }
+    },
+
+    _paintChartTitle() {
+        const el = document.getElementById('chart-title');
+        if (!el) return;
+        const titles = { category: 'Gastos por categoría', subcategory: 'Gastos por subcategoría', kind: 'Gastos fijos vs variables' };
+        el.textContent = titles[this.chartMode] || titles.category;
     },
 
     refresh() {
@@ -50,22 +73,100 @@ const Dashboard = {
         document.getElementById('income-amount').textContent = Utils.formatMoney(income);
         document.getElementById('expense-amount').textContent = Utils.formatMoney(expense);
 
+        this.renderFixedVariable(txs.filter(t => t.type === 'expense' && t.paid !== false));
         this.renderCategoryChart(userId, prefix);
         this.renderRecent(userId, prefix);
         this.renderPendingWidget();
         Notifications.renderWidget();
     },
 
-    renderCategoryChart(userId, prefix) {
-        const txs = Transactions.list.filter(tx => tx.type === 'expense' && tx.paid !== false && tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(prefix));
+    renderFixedVariable(paidExpenses) {
+        const el = document.getElementById('fixed-variable-widget');
+        if (!el) return;
+        const total = paidExpenses.reduce((s, t) => s + (t.amount || 0), 0);
+        if (total === 0) {
+            el.innerHTML = '<p class="muted">Sin gastos en el mes</p>';
+            return;
+        }
+        const buckets = { fixed: 0, variable: 0 };
+        paidExpenses.forEach(tx => {
+            const kind = Categories.resolveKind(tx.categoryId, tx.subcategoryId) || 'variable';
+            buckets[kind] = (buckets[kind] || 0) + (tx.amount || 0);
+        });
+        const row = (kind, label) => {
+            const pct = (buckets[kind] / total * 100).toFixed(1);
+            return `
+            <div class="kv-row">
+                <div class="kv-header">
+                    <span class="kv-label"><span class="kv-dot ${kind}"></span> ${label}</span>
+                    <span class="fw700">${Utils.formatMoney(buckets[kind])} <span class="muted">(${pct}%)</span></span>
+                </div>
+                <div class="kv-bar"><div class="kv-fill ${kind}" style="width:${pct}%"></div></div>
+            </div>`;
+        };
+        el.innerHTML = `
+            <div class="kv-total">
+                <span>Gasto total del mes</span>
+                <strong>${Utils.formatMoney(total)}</strong>
+            </div>
+            ${row('fixed', 'Fijos')}
+            ${row('variable', 'Variables')}`;
+    },
+
+    _groupBy(mode, txs) {
         const map = {};
+        const put = (k, entry) => {
+            map[k] = map[k] || { ...entry, key: k, total: 0 };
+            map[k].total += entry.amount || 0;
+        };
         txs.forEach(tx => {
             const cat = Categories.getById(tx.categoryId);
-            const k = cat ? cat.id : 'otros';
-            map[k] = map[k] || { id: cat ? cat.id : null, name: cat ? cat.name : 'Otros', color: cat ? cat.color : '#95A5A6', total: 0 };
-            map[k].total += tx.amount;
+            if (mode === 'subcategory') {
+                const sub = Categories.getSubcategory(tx.categoryId, tx.subcategoryId);
+                const key = sub ? `sub_${sub.id}` : `none_${cat ? cat.id : 'otros'}`;
+                put(key, {
+                    id: cat ? cat.id : null,
+                    subId: sub ? sub.id : '',
+                    noSub: !sub,
+                    name: sub ? sub.name : (cat ? `${cat.name} · sin sub` : 'Otros'),
+                    color: sub ? (sub.color || cat.color) : (cat ? cat.color : '#95A5A6'),
+                    amount: tx.amount
+                });
+            } else if (mode === 'kind') {
+                const kind = Categories.resolveKind(tx.categoryId, tx.subcategoryId) || 'variable';
+                put(kind, {
+                    id: null,
+                    kind,
+                    name: kind === 'fixed' ? 'Fijos' : 'Variables',
+                    color: this.KIND_COLORS[kind],
+                    amount: tx.amount
+                });
+            } else {
+                const key = cat ? cat.id : 'otros';
+                put(key, {
+                    id: cat ? cat.id : null,
+                    subId: '',
+                    name: cat ? cat.name : 'Otros',
+                    color: cat ? cat.color : '#95A5A6',
+                    amount: tx.amount
+                });
+            }
         });
-        const entries = Object.values(map);
+        return Object.values(map).sort((a, b) => b.total - a.total);
+    },
+
+    _inBucket(tx, c) {
+        if (c.kind) return (Categories.resolveKind(tx.categoryId, tx.subcategoryId) || 'variable') === c.kind;
+        const matchesCat = c.id ? tx.categoryId === c.id : !Categories.getById(tx.categoryId);
+        if (!matchesCat) return false;
+        if (c.subId) return tx.subcategoryId === c.subId;
+        if (c.noSub) return !tx.subcategoryId;
+        return true;
+    },
+
+    renderCategoryChart(userId, prefix) {
+        const txs = Transactions.list.filter(tx => tx.type === 'expense' && tx.paid !== false && tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(prefix));
+        const entries = this._groupBy(this.chartMode, txs);
         const labels = entries.map(c => c.name);
         const data = entries.map(c => c.total);
         const colors = entries.map(c => c.color);
@@ -101,7 +202,7 @@ const Dashboard = {
         if (!modal || !body || !data || !data[index]) return;
         const c = data[index];
         const list = (ctx.txs || [])
-            .filter(tx => c.id ? tx.categoryId === c.id : !Categories.getById(tx.categoryId))
+            .filter(tx => this._inBucket(tx, c))
             .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
         if (title) {
             const p = ctx.prefix;
@@ -229,14 +330,7 @@ const Dashboard = {
             this.destroyChart(key);
 
             const paid = txs.filter(tx => tx.type === 'expense' && tx.paid !== false && tx.userId === userId);
-            const map = {};
-            paid.forEach(tx => {
-                const cat = Categories.getById(tx.categoryId);
-                const k = cat ? cat.id : 'otros';
-                map[k] = map[k] || { id: cat ? cat.id : null, name: cat ? cat.name : 'Otros', color: cat ? cat.color : '#95A5A6', total: 0 };
-                map[k].total += tx.amount;
-            });
-            const entries = Object.values(map);
+            const entries = this._groupBy('category', paid);
             const labels = entries.map(c => c.name);
             const data = entries.map(c => c.total);
             const colors = entries.map(c => c.color);

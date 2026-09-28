@@ -96,7 +96,19 @@
                     <div class="stat-card"><div class="label">Ingresos</div><div class="value" id="income-amount" style="color:var(--success)">$0</div></div>
                     <div class="stat-card"><div class="label">Gastos</div><div class="value" id="expense-amount" style="color:var(--error)">$0</div></div>
                 </div>
-                <div class="card"><div class="card-title">Por categoría</div><canvas id="category-chart"></canvas></div>
+                <div class="card">
+                    <div class="card-title">Fijos vs Variables</div>
+                    <div id="fixed-variable-widget"></div>
+                </div>
+                <div class="card">
+                    <div class="card-title" id="chart-title">Gastos por categoría</div>
+                    <div class="seg-toggle chart-toggle" id="chart-mode-toggle">
+                        <button type="button" class="seg-opt active" data-mode="category">Categoría</button>
+                        <button type="button" class="seg-opt" data-mode="subcategory">Subcategoría</button>
+                        <button type="button" class="seg-opt" data-mode="kind">Fijo / Variable</button>
+                    </div>
+                    <canvas id="category-chart"></canvas>
+                </div>
                 <div class="card"><div class="card-title">Pendientes de pago</div><div id="pending-count"></div></div>
                 <div class="card"><div class="card-title">Últimas transacciones</div><div id="recent-transactions"></div></div>
                 <div class="card"><div class="card-title">Próximo cobro</div><div id="next-payroll"></div></div>
@@ -129,6 +141,7 @@
                 <div class="filters-row">
                     <select class="form-control" id="filter-type"><option value="all">Todos</option><option value="expense">↓ Gastos</option><option value="income">↑ Ingresos</option></select>
                     <select class="form-control" id="filter-category"><option value="all">Todas</option></select>
+                    <select class="form-control" id="filter-kind"><option value="all">Fijos y variables</option><option value="fixed">Sólo fijos</option><option value="variable">Sólo variables</option></select>
                     <input type="month" class="form-control" id="filter-date">
                 </div>
                 <div id="transactions-list"></div>
@@ -166,6 +179,13 @@
                                 <input type="date" class="form-control" id="tx-date" required>
                             </div>
                         </div>
+
+                        <div class="form-group hidden" id="subcategory-group">
+                            <label>Subcategoría</label>
+                            <select class="form-control" id="tx-subcategory"></select>
+                        </div>
+
+                        <div class="kind-hint hidden" id="tx-kind-hint"></div>
 
                         <div class="form-group">
                             <label>Descripción</label>
@@ -287,6 +307,14 @@
             <!-- ══════ CATEGORÍAS ══════ -->
             <div class="page" id="page-categorias">
                 <button class="btn btn-primary" id="add-category-btn" style="margin-bottom:16px"><i class="fas fa-plus"></i> Nueva categoría</button>
+                <div class="filters-row">
+                    <select class="form-control" id="filter-cat-kind">
+                        <option value="all">Todas las categorías</option>
+                        <option value="fixed">Gastos fijos</option>
+                        <option value="variable">Gastos variables</option>
+                        <option value="income">Ingresos</option>
+                    </select>
+                </div>
                 <div class="cat-grid" id="categories-list"></div>
             </div>
 
@@ -321,7 +349,42 @@
                 <div class="form-group"><label>Tipo</label><select class="form-control" id="cat-type"><option value="expense">Gasto</option><option value="income">Ingreso</option></select></div>
                 <div class="form-group"><label>Color</label><input type="color" id="cat-color" value="#6C63FF"></div>
             </div>
+            <div class="form-group" id="cat-kind-group">
+                <label>Clasificación</label>
+                <div class="seg-toggle" id="cat-kind-toggle">
+                    <button type="button" class="seg-opt" data-kind="variable"><i class="fas fa-wave-square"></i> Variable</button>
+                    <button type="button" class="seg-opt" data-kind="fixed"><i class="fas fa-lock"></i> Fijo</button>
+                </div>
+            </div>
             <div class="form-group"><label>Ícono</label><div class="icon-picker" id="icon-picker"></div></div>
+            <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px"><i class="fas fa-save"></i> Guardar</button>
+        </form>
+    </div>
+</div>
+
+<!-- Subcategoría Modal -->
+<div class="modal hidden" id="subcategory-modal">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="subcategory-modal-title">Nueva Subcategoría</h3>
+            <button class="modal-close"><i class="fas fa-times"></i></button>
+        </div>
+        <form id="subcategory-form">
+            <input type="hidden" id="sub-parent-id">
+            <input type="hidden" id="sub-id">
+            <div class="form-group"><label>Nombre</label><input type="text" class="form-control" id="sub-name" maxlength="40" required></div>
+            <div class="form-group hidden" id="sub-kind-group">
+                <label>Clasificación</label>
+                <div class="seg-toggle" id="sub-kind-toggle">
+                    <button type="button" class="seg-opt" data-kind="inherit"><i class="fas fa-undo"></i> Heredar</button>
+                    <button type="button" class="seg-opt" data-kind="variable"><i class="fas fa-wave-square"></i> Variable</button>
+                    <button type="button" class="seg-opt" data-kind="fixed"><i class="fas fa-lock"></i> Fijo</button>
+                </div>
+                <span class="muted" id="sub-inherit-hint" style="font-size:0.75rem"></span>
+            </div>
+            <div class="form-group"><label>Color</label><input type="color" id="sub-color" value="#6C63FF"></div>
+            <div class="form-group"><label>Ícono</label><div class="icon-picker" id="sub-icon-picker"></div></div>
             <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px"><i class="fas fa-save"></i> Guardar</button>
         </form>
     </div>

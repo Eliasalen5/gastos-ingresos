@@ -528,6 +528,7 @@ const Inversiones = {
             type: 'expense',
             amount: data.amountARS,
             categoryId: catId,
+            subcategoryId: '',
             description: `Inversión: ${(obj && obj.name) || 'objetivo'}`,
             date: data.date,
             paymentMethod: 'debito',
@@ -553,7 +554,7 @@ const Inversiones = {
         const desc = `Inversión: ${(obj && obj.name) || 'objetivo'}`;
         if (linked) {
             await db.collection('transactions').doc(linked.id).update({
-                userId: data.userId, amount: data.amountARS, categoryId: catId,
+                userId: data.userId, amount: data.amountARS, categoryId: catId, subcategoryId: '',
                 date: data.date, paid: true, description: desc
             });
         } else {
@@ -569,10 +570,12 @@ const Inversiones = {
         if (existing) return existing.id;
         try {
             const ref = await db.collection('categories').add({
-                name: 'Inversiones', icon: 'fa-chart-line', color: '#16A085', type: 'expense'
+                name: 'Inversiones', icon: 'fa-chart-line', color: '#16A085', type: 'expense',
+                kind: 'fixed', subcategories: []
             });
             if (typeof Categories !== 'undefined' && Categories.load) await Categories.load();
             if (typeof Categories !== 'undefined' && Categories.updateFilterSelect) Categories.updateFilterSelect();
+            if (typeof Categories !== 'undefined' && Categories.renderGrid) Categories.renderGrid();
             return ref.id;
         } catch (e) {
             console.error('Error creating inversion category:', e);
