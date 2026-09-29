@@ -33,7 +33,6 @@ const Transactions = {
         document.getElementById('tx-amount')?.addEventListener('input', () => this.updatePreview());
         document.getElementById('tx-category')?.addEventListener('change', () => {
             this.updateSubcategorySelect();
-            this.updateDescriptionRequired();
         });
 
         document.getElementById('tx-receipt')?.addEventListener('change', (e) => {
@@ -68,7 +67,6 @@ const Transactions = {
         const sel = document.getElementById('tx-category');
         sel.innerHTML = Categories.renderSelects(type === 'income' ? 'income' : 'expense');
         this.updateSubcategorySelect();
-        this.updateDescriptionRequired();
     },
 
     updateSubcategorySelect(preserveValue) {
@@ -105,15 +103,6 @@ const Transactions = {
             : cat.name;
         hint.innerHTML = `<span class="kind-pill kind-${kind}"><i class="fas ${kind === 'fixed' ? 'fa-lock' : 'fa-wave-square'}"></i> ${Categories.kindLabel(kind)}</span> Se clasifica como <strong>${Categories.kindLabel(kind)}</strong> · derivado de ${Utils.esc(source)}`;
         hint.classList.remove('hidden');
-    },
-
-    updateDescriptionRequired() {
-        const desc = document.getElementById('tx-description');
-        if (!desc) return;
-        const required = document.getElementById('tx-category').value === 'cat_otros_g';
-        desc.required = required;
-        desc.placeholder = required ? 'Obligatoria' : 'Opcional';
-        desc.closest('.form-group').classList.toggle('required', required);
     },
 
     updatePreview() {
@@ -153,11 +142,6 @@ const Transactions = {
 
         if (!amount || !categoryId || !date) {
             App.toast('Completá todos los campos', 'error');
-            return;
-        }
-
-        if (categoryId === 'cat_otros_g' && !description) {
-            App.toast('La descripción es obligatoria para Otros gastos', 'error');
             return;
         }
 
@@ -344,7 +328,6 @@ const Transactions = {
         }
         sel.value = tx.categoryId;
         this.updateSubcategorySelect(tx.subcategoryId);
-        this.updateDescriptionRequired();
 
         document.getElementById('tx-amount').value = tx.amount;
         document.getElementById('tx-description').value = tx.description || '';

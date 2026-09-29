@@ -579,7 +579,7 @@ const Inversiones = {
             return ref.id;
         } catch (e) {
             console.error('Error creating inversion category:', e);
-            return 'cat_otros_g';
+            return '';
         }
     },
 
