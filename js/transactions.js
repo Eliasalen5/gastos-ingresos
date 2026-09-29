@@ -34,6 +34,9 @@ const Transactions = {
         document.getElementById('tx-category')?.addEventListener('change', () => {
             this.updateSubcategorySelect();
         });
+        document.getElementById('tx-subcategory')?.addEventListener('change', (e) => {
+            this.updateKindHint(document.getElementById('tx-category')?.value, e.target.value);
+        });
 
         document.getElementById('tx-receipt')?.addEventListener('change', (e) => {
             const p = document.getElementById('receipt-preview');
