@@ -1,7 +1,17 @@
 const Inversiones = {
     objetivos: [],
     aportes: [],
+    settings: { pctInversion: 30, catGastoInversionId: '', legacyPurgeDone: false },
     _bound: false,
+
+    SETTINGS_COLLECTION: 'app_settings',
+    SETTINGS_DOC: 'inversiones',
+    DEFAULT_PCT: 30,
+
+    USERS: [
+        { id: 'nadia', name: 'Nadia', color: 'var(--nadia)' },
+        { id: 'elias', name: 'Elias', color: 'var(--elias)' }
+    ],
 
     INSTRUMENTOS: [
         { id: 'efectivo', label: 'Pesos / caja de ahorro', icon: 'fa-money-bill' },
@@ -13,12 +23,12 @@ const Inversiones = {
         { id: 'otro', label: 'Otro', icon: 'fa-tag' }
     ],
 
-    DEFAULTS: [
-        { id: 'inv_emergencia', name: 'Fondo de emergencia', icon: 'fa-umbrella', color: '#E74C3C', pct: 25, order: 1, plazo: null, metodo: 'efectivo', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 0, freqRetiroMeses: 0 },
-        { id: 'inv_hijo', name: 'Futuro de nuestro hijo', icon: 'fa-baby', color: '#FF6B9D', pct: 20, order: 2, plazo: null, metodo: 'usd_billete', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 12, freqRetiroMeses: 12 },
-        { id: 'inv_jubilacion', name: 'Jubilación', icon: 'fa-umbrella-beach', color: '#2ECC71', pct: 15, order: 3, plazo: null, metodo: 'sp500', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 0, freqRetiroMeses: 0 },
-        { id: 'inv_serrucho', name: 'Inversión serrucho (vacaciones)', icon: 'fa-plane', color: '#3498DB', pct: 15, order: 4, plazo: '1 año', metodo: 'usd_billete', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 12, freqRetiroMeses: 0 },
-        { id: 'inv_casa', name: 'Futura casa', icon: 'fa-house-chimney', color: '#E67E22', pct: 25, order: 5, plazo: null, metodo: 'plazo_fijo', metodoDetalle: '', monedaSugerida: 'ARS', lockMeses: 0, freqRetiroMeses: 0 }
+    INV_ICONS: [
+        'fa-piggy-bank', 'fa-umbrella', 'fa-umbrella-beach', 'fa-baby', 'fa-house-chimney',
+        'fa-plane', 'fa-graduation-cap', 'fa-car', 'fa-gift', 'fa-heart',
+        'fa-chart-line', 'fa-chart-simple', 'fa-coins', 'fa-money-bill-wave', 'fa-dollar-sign',
+        'fa-building-columns', 'fa-landmark', 'fa-wallet', 'fa-shield-halved', 'fa-seedling',
+        'fa-briefcase', 'fa-rocket', 'fa-fire', 'fa-star', 'fa-tag'
     ],
 
     async init() {
@@ -40,8 +50,8 @@ const Inversiones = {
         document.getElementById('inv-form').addEventListener('submit', (e) => { e.preventDefault(); this.save(); });
         document.getElementById('inv-cancel').addEventListener('click', () => this.resetForm());
         document.getElementById('inversiones-month')?.addEventListener('change', () => this.render());
-
-        document.getElementById('inv-amount')?.addEventListener('input', () => this.updatePreview());
+        document.getElementById('inv-pct-global')?.addEventListener('change', () => this.savePctGlobal());
+        document.getElementById('inv-new-obj')?.addEventListener('click', () => this.openNewObjetivo());
 
         document.querySelectorAll('#inv-obj-modal .modal-close').forEach(b => b.addEventListener('click', () => this.closeObjModal()));
         document.querySelector('#inv-obj-modal .modal-overlay')?.addEventListener('click', () => this.closeObjModal());
@@ -50,102 +60,152 @@ const Inversiones = {
 
     async load() {
         try {
+            await this.loadSettings();
+
             const snap = await db.collection('inversion_objetivos').get();
             this.objetivos = [];
             snap.forEach(doc => this.objetivos.push({ id: doc.id, ...doc.data() }));
-            const existingIds = this.objetivos.map(o => o.id);
-            for (const obj of this.DEFAULTS) {
-                if (existingIds.includes(obj.id)) continue;
-                await db.collection('inversion_objetivos').doc(obj.id).set({
-                    name: obj.name, icon: obj.icon, color: obj.color, pct: obj.pct, order: obj.order, plazo: obj.plazo,
-                    metodo: obj.metodo, metodoDetalle: '', monedaSugerida: obj.monedaSugerida,
-                    startDate: Utils.todayStr(), lockMeses: obj.lockMeses, freqRetiroMeses: obj.freqRetiroMeses
-                });
-                this.objetivos.push({ id: obj.id, ...obj, startDate: Utils.todayStr(), metodoDetalle: '' });
-            }
             this.objetivos.sort((a, b) => (a.order || 99) - (b.order || 99));
 
-            await this.purgeRemovedObjetivos();
-
             await this.migrateObjetivos();
+            await this.purgeLegacyOnce();
 
             const snap2 = await db.collection('inversion_aportes').orderBy('date', 'desc').limit(1000).get();
             this.aportes = [];
             snap2.forEach(doc => this.aportes.push({ id: doc.id, ...doc.data() }));
         } catch (e) {
             console.error('Error loading inversiones:', e);
-            if (this.objetivos.length === 0) this.objetivos = [...this.DEFAULTS];
-            this.aportes = [];
         }
     },
 
-    async purgeRemovedObjetivos() {
-        const removedIds = ['inv_2anios', 'inv_5anios', 'inv_10anios'];
-        const toRemove = this.objetivos.filter(o => removedIds.includes(o.id));
-        if (toRemove.length === 0) return;
-        for (const o of toRemove) {
-            try {
-                const aportesSnap = await db.collection('inversion_aportes').where('objetivoId', '==', o.id).get();
-                const aporteIds = [];
-                aportesSnap.forEach(d => aporteIds.push(d.id));
-                for (const aporteId of aporteIds) {
-                    const txSnap = await db.collection('transactions').where('inversionAporteId', '==', aporteId).get();
-                    await Promise.all(txSnap.docs.map(d => d.ref.delete()));
-                    await db.collection('inversion_aportes').doc(aporteId).delete();
-                }
-                await db.collection('inversion_objetivos').doc(o.id).delete();
-            } catch (e) {
-                console.error('Error purging objetivo:', o.id, e);
-            }
+    async loadSettings() {
+        const fallback = { pctInversion: this.DEFAULT_PCT, catGastoInversionId: '', legacyPurgeDone: false };
+        try {
+            const doc = await db.collection(this.SETTINGS_COLLECTION).doc(this.SETTINGS_DOC).get();
+            const data = doc.exists ? (doc.data() || {}) : {};
+            this.settings = {
+                pctInversion: this.clampPct(data.pctInversion, this.DEFAULT_PCT),
+                catGastoInversionId: data.catGastoInversionId || '',
+                legacyPurgeDone: data.legacyPurgeDone === true
+            };
+        } catch (e) {
+            console.error('Error cargando ajustes de inversiones:', e);
+            this.settings = { ...fallback };
         }
-        this.objetivos = this.objetivos.filter(o => !removedIds.includes(o.id));
+        const input = document.getElementById('inv-pct-global');
+        if (input) input.value = this.getPctInversion();
+    },
+
+    async saveSettings(patch) {
+        this.settings = { ...this.settings, ...patch };
+        try {
+            await db.collection(this.SETTINGS_COLLECTION).doc(this.SETTINGS_DOC).set(this.settings, { merge: true });
+        } catch (e) {
+            console.error('Error guardando ajustes de inversiones:', e);
+        }
+    },
+
+    getPctInversion() {
+        return this.settings.pctInversion;
+    },
+
+    clampPct(value, fallback) {
+        const n = parseFloat(value);
+        if (isNaN(n)) return fallback;
+        return Math.max(0, Math.min(100, Math.round(n * 100) / 100));
+    },
+
+    async savePctGlobal() {
+        const input = document.getElementById('inv-pct-global');
+        if (!input) return;
+        const pct = this.clampPct(input.value, this.DEFAULT_PCT);
+        input.value = pct;
+        if (pct === this.getPctInversion()) return;
+        await this.saveSettings({ pctInversion: pct });
+        App.toast(`Ahora se invierte el ${pct}% de cada salario`, 'success');
+        this.render();
     },
 
     async migrateObjetivos() {
         const today = Utils.todayStr();
         for (const o of this.objetivos) {
-            const def = this.DEFAULTS.find(d => d.id === o.id);
+            const legacyPct = o.pct != null ? this.clampPct(o.pct, 0) : 0;
             const patch = {};
-            if (o.metodo === undefined) patch.metodo = def ? def.metodo : 'otro';
+            if (o.pctNadia === undefined) patch.pctNadia = legacyPct;
+            if (o.pctElias === undefined) patch.pctElias = legacyPct;
+            if (o.pct !== undefined) patch.pct = firebase.firestore.FieldValue.delete();
+            if (o.metodo === undefined) patch.metodo = 'otro';
             if (o.metodoDetalle === undefined) patch.metodoDetalle = '';
-            if (o.monedaSugerida === undefined) patch.monedaSugerida = def ? def.monedaSugerida : '';
-            if (o.startDate === undefined) patch.startDate = o.fechaCreacion || today;
-            if (o.lockMeses === undefined) patch.lockMeses = def ? def.lockMeses : 0;
-            if (o.freqRetiroMeses === undefined) patch.freqRetiroMeses = def ? def.freqRetiroMeses : 0;
-            if (Object.keys(patch).length > 0) {
-                try {
-                    await db.collection('inversion_objetivos').doc(o.id).update(patch);
-                } catch (err) {
-                    console.error('Error migrating objetivo:', err);
-                }
-                Object.assign(o, patch);
+            if (o.startDate === undefined) patch.startDate = today;
+            if (o.lockMeses === undefined) patch.lockMeses = 0;
+            if (o.freqRetiroMeses === undefined) patch.freqRetiroMeses = 0;
+            if (o.monedaSugerida !== undefined) patch.monedaSugerida = firebase.firestore.FieldValue.delete();
+            if (Object.keys(patch).length === 0) continue;
+            try {
+                await db.collection('inversion_objetivos').doc(o.id).update(patch);
+            } catch (e) {
+                console.error('Error migrando objetivo:', e);
+                continue;
             }
+            Object.keys(patch).forEach(k => {
+                if (patch[k] === undefined) return;
+                if (k === 'pct' || k === 'monedaSugerida') delete o[k];
+                else o[k] = patch[k];
+            });
         }
     },
 
-    getMonthIncome(userId, prefix) {
-        return Transactions.list
-            .filter(tx => tx.userId === userId && tx.type === 'income' && typeof tx.date === 'string' && tx.date.startsWith(prefix))
-            .filter(tx => {
-                const cat = Categories.getById(tx.categoryId);
-                return cat && cat.name && cat.name.trim().toLowerCase() === 'salario';
-            })
-            .reduce((s, t) => s + (t.amount || 0), 0);
+    async purgeLegacyOnce() {
+        if (this.settings.legacyPurgeDone) return;
+        const removedIds = ['inv_2anios', 'inv_5anios', 'inv_10anios'];
+        const toRemove = this.objetivos.filter(o => removedIds.includes(o.id));
+        for (const o of toRemove) {
+            try {
+                await this.deleteObjetivoData(o.id);
+            } catch (e) {
+                console.error('Error purging legacy objetivo:', o.id, e);
+            }
+        }
+        this.objetivos = this.objetivos.filter(o => !removedIds.includes(o.id));
+        await this.saveSettings({ legacyPurgeDone: true });
+    },
+
+    isSalaryTx(tx) {
+        if (!tx || tx.type !== 'income') return false;
+        if (tx.categoryId === 'cat_salario') return true;
+        const cat = Categories.getById(tx.categoryId);
+        return !!cat && !!cat.name && cat.name.trim().toLowerCase() === 'salario';
     },
 
     getSalaryPayments(userId, prefix) {
         return Transactions.list
-            .filter(tx => tx.userId === userId && tx.type === 'income' && typeof tx.date === 'string' && tx.date.startsWith(prefix))
-            .filter(tx => {
-                const cat = Categories.getById(tx.categoryId);
-                return cat && cat.name && cat.name.trim().toLowerCase() === 'salario';
-            })
+            .filter(tx => tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(prefix) && this.isSalaryTx(tx))
             .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     },
 
+    getMonthIncome(userId, prefix) {
+        return this.getSalaryPayments(userId, prefix).reduce((s, t) => s + (t.amount || 0), 0);
+    },
+
     getMonthlyTarget(userId, prefix) {
-        const total = this.getMonthIncome(userId, prefix);
-        return Math.round(total * 0.30 * 100) / 100;
+        return this.round2(this.getMonthIncome(userId, prefix) * this.getPctInversion() / 100);
+    },
+
+    pctFor(o, userId) {
+        const n = parseFloat(userId === 'nadia' ? o.pctNadia : o.pctElias);
+        return isNaN(n) ? 0 : n;
+    },
+
+    getCardTarget(o, userId, prefix) {
+        return this.round2(this.getMonthlyTarget(userId, prefix) * this.pctFor(o, userId) / 100);
+    },
+
+    pctSum(userId) {
+        return this.round2(this.objetivos.reduce((s, o) => s + this.pctFor(o, userId), 0));
+    },
+
+    round2(n) {
+        return Math.round((n || 0) * 100) / 100;
     },
 
     addMonths(dateStr, n) {
@@ -155,6 +215,26 @@ const Inversiones = {
         const lastDay = new Date(y, m + 1, 0).getDate();
         const r = new Date(y, m, Math.min(d.getDate(), lastDay));
         return `${r.getFullYear()}-${String(r.getMonth() + 1).padStart(2, '0')}-${String(r.getDate()).padStart(2, '0')}`;
+    },
+
+    monthPrefix() {
+        const el = document.getElementById('inversiones-month');
+        return el && el.value ? el.value : Utils.currentYearMonth();
+    },
+
+    monthEnd(prefix) {
+        const p = prefix || this.monthPrefix();
+        const [y, m] = String(p).split('-').map(n => parseInt(n, 10));
+        if (!y || !m) return '9999-12-31';
+        const lastDay = new Date(y, m, 0).getDate();
+        return `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    },
+
+    monthLabel(prefix) {
+        const p = prefix || this.monthPrefix();
+        const d = new Date(p + '-15T12:00:00');
+        if (isNaN(d.getTime())) return p;
+        return d.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
     },
 
     firstAporteDate(objetivoId) {
@@ -189,15 +269,8 @@ const Inversiones = {
     },
 
     arsValue(m) {
-        if (m.currency === 'USD') {
-            return m.amountARS != null ? m.amountARS : Math.round((m.amount || 0) * (m.rate || 0) * 100) / 100;
-        }
+        if (m.amountARS != null) return m.amountARS;
         return m.amount || 0;
-    },
-
-    monthPrefix() {
-        const el = document.getElementById('inversiones-month');
-        return el && el.value ? el.value : Utils.currentYearMonth();
     },
 
     getMonthAportes(prefix) {
@@ -205,22 +278,35 @@ const Inversiones = {
         return this.aportes.filter(a => typeof a.date === 'string' && a.date.startsWith(p));
     },
 
+    getAportesHastaFinDeMes(objetivoId, prefix) {
+        const limit = this.monthEnd(prefix);
+        return this.aportes.filter(a => a.objetivoId === objetivoId && typeof a.date === 'string' && a.date <= limit);
+    },
+
     getObjetivoTotals(objetivoId, prefix) {
         let ars = 0;
         this.getMonthAportes(prefix).forEach(a => {
             if (a.objetivoId !== objetivoId) return;
-            const sign = a.type === 'retiro' ? -1 : 1;
-            ars += sign * this.arsValue(a);
+            ars += (a.type === 'retiro' ? -1 : 1) * this.arsValue(a);
         });
-        return ars;
+        return this.round2(ars);
+    },
+
+    getObjetivoAcumulado(objetivoId, prefix, userId) {
+        let ars = 0;
+        this.getAportesHastaFinDeMes(objetivoId, prefix).forEach(a => {
+            if (userId && a.userId !== userId) return;
+            ars += (a.type === 'retiro' ? -1 : 1) * this.arsValue(a);
+        });
+        return this.round2(ars);
     },
 
     getTotalEquiv(prefix) {
-        let total = 0;
-        this.objetivos.forEach(o => {
-            total += this.getObjetivoTotals(o.id, prefix);
-        });
-        return total;
+        return this.round2(this.objetivos.reduce((s, o) => s + this.getObjetivoTotals(o.id, prefix), 0));
+    },
+
+    getTotalAcumulado(prefix, userId) {
+        return this.round2(this.objetivos.reduce((s, o) => s + this.getObjetivoAcumulado(o.id, prefix, userId), 0));
     },
 
     render() {
@@ -233,54 +319,47 @@ const Inversiones = {
     renderSummary() {
         const el = document.getElementById('inv-summary');
         if (!el) return;
-        const prefixEl = document.getElementById('inversiones-month');
-        const prefix = prefixEl && prefixEl.value ? prefixEl.value : Utils.currentYearMonth();
-        const monthDate = new Date(prefix + '-15T12:00:00');
-        const monthLabel = monthDate.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
-        const totalPct = this.objetivos.reduce((s, o) => s + (o.pct || 0), 0);
-        const hasAportes = this.getMonthAportes(prefix).length > 0;
+        const prefix = this.monthPrefix();
+        const monthLabel = this.monthLabel(prefix);
+        const pctGlobal = this.getPctInversion();
+        const avisos = [];
 
-        el.innerHTML = ['nadia', 'elias'].map(u => {
-            const name = u === 'nadia' ? 'Nadia' : 'Elias';
-            const color = u === 'nadia' ? 'var(--nadia)' : 'var(--elias)';
-            const income = this.getMonthIncome(u, prefix);
-            const base = this.getMonthlyTarget(u, prefix);
+        el.innerHTML = this.USERS.map(u => {
+            const income = this.getMonthIncome(u.id, prefix);
+            const base = this.getMonthlyTarget(u.id, prefix);
+            const payments = this.getSalaryPayments(u.id, prefix);
             let cobrosHtml = '';
-            if (u === 'elias' && hasAportes) {
-                const payments = this.getSalaryPayments(u, prefix);
-                if (payments.length > 0) {
-                    cobrosHtml = `<div class="target-row" style="margin-top:2px"><span>30% de cada quincena</span><b></b></div>` +
-                        payments.map(p => {
-                            const pct = Math.round((p.amount || 0) * 0.30 * 100) / 100;
-                            return `<div class="inv-cobro-row"><span>· ${Utils.formatDate(p.date)} · ${Utils.formatMoney(p.amount)}</span><b>${Utils.formatMoney(pct)}</b></div>`;
-                        }).join('');
-                }
+            if (payments.length > 0) {
+                cobrosHtml = `<div class="target-row" style="margin-top:2px"><span>${pctGlobal}% de cada cobro</span><b></b></div>` +
+                    payments.map(p => {
+                        const pct = this.round2((p.amount || 0) * pctGlobal / 100);
+                        return `<div class="inv-cobro-row"><span>· ${Utils.formatDate(p.date)} · ${Utils.formatMoney(p.amount)}</span><b>${Utils.formatMoney(pct)}</b></div>`;
+                    }).join('');
             }
             const rows = this.objetivos.map(o => {
-                const monto = Math.round(base * (o.pct || 0)) / 100;
+                const monto = this.getCardTarget(o, u.id, prefix);
                 return `<div class="target-row">
                     <span style="color:${o.color}"><i class="fas ${o.icon}"></i> ${Utils.esc(o.name)}</span>
-                    <b>${Utils.formatMoney(monto)} <span class="muted">(${o.pct || 0}%)</span></b>
+                    <b>${Utils.formatMoney(monto)} <span class="muted">(${this.pctFor(o, u.id)}%)</span></b>
                 </div>`;
             }).join('');
-            const invBlock = hasAportes
-                ? `${cobrosHtml}
-                    <div class="target-row"><span>A invertir (30%)</span><b>${Utils.formatMoney(base)}</b></div>
-                    <div style="margin-top:8px">${rows}</div>`
-                : `<div class="target-row"><span>Invertido en el mes</span><b>${Utils.formatMoney(0)}</b></div>`;
+            const suma = this.pctSum(u.id);
+            if (suma !== 100) avisos.push(`${u.name} suma ${suma}%`);
             return `
-                <div class="ahorro-target" style="border-left-color:${color}">
+                <div class="ahorro-target" style="border-left-color:${u.color}">
                     <div class="target-header">
-                        <span class="fw600" style="color:${color}">${name}</span>
+                        <span class="fw600" style="color:${u.color}">${u.name}</span>
                         <span class="muted">${Utils.esc(monthLabel)}</span>
                     </div>
                     <div class="target-row"><span>Salario cobrado</span><b>${Utils.formatMoney(income)}</b></div>
-                    ${invBlock}
+                    ${cobrosHtml}
+                    <div class="target-row"><span>A invertir (${pctGlobal}%)</span><b>${Utils.formatMoney(base)}</b></div>
+                    <div style="margin-top:8px">${rows || '<p class="muted" style="margin:0">Todavía no hay inversiones cargadas.</p>'}</div>
                 </div>`;
         }).join('');
 
-        if (hasAportes && totalPct !== 100) {
-            el.innerHTML += `<p class="muted" style="margin-top:4px"><i class="fas fa-triangle-exclamation"></i> Los porcentajes suman ${totalPct}% (deberían sumar 100%). Tocá el lápiz en cada objetivo para ajustarlos.</p>`;
+        if (avisos.length > 0) {
+            el.innerHTML += `<p class="muted" style="margin-top:4px"><i class="fas fa-triangle-exclamation"></i> Ojo con los porcentajes (${Utils.esc(avisos.join(' · '))}): deberían sumar 100% cada uno. Tocá el lápiz en cada inversión para ajustarlos.</p>`;
         }
     },
 
@@ -288,13 +367,16 @@ const Inversiones = {
         const el = document.getElementById('inv-objetivos');
         if (!el) return;
         const prefix = this.monthPrefix();
-        const grandTotal = this.getTotalEquiv(prefix);
+        const label = Utils.esc(this.monthLabel(prefix));
+
+        if (this.objetivos.length === 0) {
+            el.innerHTML = `<div class="empty"><i class="fas fa-chart-line"></i><p>Todavía no hay inversiones</p><p class="muted">Tocá "+ Nueva inversión" para crear la primera y empezar a repartir el porcentaje.</p></div>`;
+            return;
+        }
 
         el.innerHTML = this.objetivos.map(o => {
-            const total = this.getObjetivoTotals(o.id, prefix);
-            const realPct = grandTotal > 0 ? (total / grandTotal * 100) : 0;
-            const idealPct = o.pct || 0;
-            const plazoBadge = o.plazo ? `<span class="inst-badge">Plazo ${Utils.esc(o.plazo)}</span>` : '';
+            const delMes = this.getObjetivoTotals(o.id, prefix);
+            const acum = this.getObjetivoAcumulado(o.id, prefix);
             const inst = this.INSTRUMENTOS.find(i => i.id === o.metodo);
             const metodoHtml = inst ? `
                     <div class="inv-metodo"><i class="fas ${inst.icon}"></i> ${Utils.esc(inst.label)}${o.metodoDetalle ? ` · ${Utils.esc(o.metodoDetalle)}` : ''}</div>` : '';
@@ -307,20 +389,34 @@ const Inversiones = {
             const retiroTip = st.estado === 'bloqueado'
                 ? `Disponible desde ${Utils.formatDate(st.fecha)}`
                 : `Próxima ventana de retiro: ${Utils.formatDate(st.fecha)}`;
+
+            const splitRows = this.USERS.map(u => {
+                const pct = this.pctFor(o, u.id);
+                const target = this.getCardTarget(o, u.id, prefix);
+                const propio = this.getObjetivoAcumulado(o.id, prefix, u.id);
+                const propioHtml = (propio !== 0)
+                    ? ` <span class="muted">· ${Utils.formatMoney(propio)} aportados</span>`
+                    : '';
+                return `<div class="inv-split-row">
+                    <span class="inv-split-name"><span class="user-dot" style="background:${u.color}"></span>${u.name} <span class="muted">${pct}%</span></span>
+                    <span class="inv-split-value">${Utils.formatMoney(target)}${propioHtml}</span>
+                </div>`;
+            }).join('');
+
             return `
                 <div class="ahorro-target inv-target" style="border-left-color:${o.color}">
                     <div class="target-header">
-                        <span class="fw600" style="color:${o.color}"><i class="fas ${o.icon}"></i> ${Utils.esc(o.name)}</span>
-                        <span class="inv-pct-edit muted" data-editobj="${o.id}" title="Editar objetivo">${idealPct}% ${plazoBadge} <i class="fas fa-pen"></i></span>
+                        <span class="fw600 inv-target-name" style="color:${o.color}"><i class="fas ${o.icon}"></i> ${Utils.esc(o.name)}</span>
+                        <span class="inv-target-actions">
+                            <button class="icon-btn" data-editobj="${o.id}" title="Editar inversión"><i class="fas fa-pen"></i></button>
+                            <button class="icon-btn danger" data-delobj="${o.id}" title="Eliminar inversión"><i class="fas fa-trash"></i></button>
+                        </span>
                     </div>
                     ${metodoHtml}
                     ${statusHtml}
-                    <div class="target-row"><span>Total aportado</span><b>${Utils.formatMoney(total)}</b></div>
-                    <div class="target-row"><span>Peso real en la cartera</span><b>${realPct.toFixed(1)}% (ideal ${idealPct}%)</b></div>
-                    <div class="progress-bar inv-bar">
-                        <div class="progress-fill" style="width:${Math.min(100, realPct).toFixed(1)}%;background:${o.color}"></div>
-                        <div class="inv-bar-marker" style="left:${Math.min(100, idealPct)}%"></div>
-                    </div>
+                    <div class="inv-split">${splitRows}</div>
+                    <div class="target-row"><span>Invertido este mes</span><b>${Utils.formatMoney(delMes)}</b></div>
+                    <div class="target-row"><span>Acumulado (hasta ${label})</span><b class="inv-acum">${Utils.formatMoney(acum)}</b></div>
                     <div class="target-footer">
                         <button class="btn btn-sm btn-primary" data-aporte="${o.id}"><i class="fas fa-plus"></i> Aportar</button>
                         <button class="btn btn-sm btn-ghost" data-retiro="${o.id}"${retiroLocked ? ` disabled title="${Utils.esc(retiroTip)}"` : ''}><i class="fas fa-minus-circle"></i> Retirar</button>
@@ -331,19 +427,18 @@ const Inversiones = {
         el.querySelectorAll('[data-aporte]').forEach(btn => btn.addEventListener('click', () => this.openMove(btn.dataset.aporte, 'aporte')));
         el.querySelectorAll('[data-retiro]').forEach(btn => btn.addEventListener('click', () => this.openMove(btn.dataset.retiro, 'retiro')));
         el.querySelectorAll('[data-editobj]').forEach(btn => btn.addEventListener('click', () => this.openEditObjetivo(btn.dataset.editobj)));
+        el.querySelectorAll('[data-delobj]').forEach(btn => btn.addEventListener('click', () => this.deleteObjetivo(btn.dataset.delobj)));
     },
 
     renderTotals() {
         const el = document.getElementById('inv-totals');
         if (!el) return;
         const prefix = this.monthPrefix();
-        let ars = 0;
-        this.objetivos.forEach(o => {
-            ars += this.getObjetivoTotals(o.id, prefix);
-        });
+        const label = Utils.esc(this.monthLabel(prefix));
         el.innerHTML = `
-            <div class="stat-card"><div class="label">Total invertido en el mes</div><div class="value">${Utils.formatMoney(ars)}</div></div>
-            <div class="stat-card"><div class="label">Moneda</div><div class="value" style="color:var(--success)">Pesos (ARS)</div></div>`;
+            <div class="stat-card"><div class="label">Invertido este mes</div><div class="value">${Utils.formatMoney(this.getTotalEquiv(prefix))}</div></div>
+            <div class="stat-card"><div class="label">Acumulado al ${label}</div><div class="value">${Utils.formatMoney(this.getTotalAcumulado(prefix))}</div></div>
+            <div class="stat-card"><div class="label">Aportado por vos</div><div class="value" style="color:var(--primary)">${Utils.formatMoney(this.getTotalAcumulado(prefix, Auth.currentUser))}</div></div>`;
     },
 
     renderHistory() {
@@ -397,7 +492,9 @@ const Inversiones = {
     updateObjetivoSelect() {
         const sel = document.getElementById('inv-objetivo');
         if (!sel) return;
+        const current = sel.value;
         sel.innerHTML = this.objetivos.map(o => `<option value="${o.id}">${Utils.esc(o.name)}</option>`).join('');
+        if (current && this.objetivos.some(o => o.id === current)) sel.value = current;
     },
 
     setType(type) {
@@ -412,12 +509,6 @@ const Inversiones = {
             btn.classList.toggle('active', isRetiro);
             btn.innerHTML = isRetiro ? '<i class="fas fa-arrow-down"></i> Retirar' : '<i class="fas fa-arrow-up"></i> Aportar';
         }
-        this.updatePreview();
-    },
-
-    updatePreview() {
-        const el = document.getElementById('inv-preview');
-        if (el) el.textContent = '';
     },
 
     resetForm() {
@@ -428,28 +519,35 @@ const Inversiones = {
         this.setType('aporte');
         this.updateObjetivoSelect();
         document.getElementById('inv-date').value = Utils.todayStr();
-        this.updatePreview();
+        const userSel = document.getElementById('inv-user');
+        if (userSel) userSel.value = Auth.currentUser || 'nadia';
     },
 
     openMove(objetivoId, type) {
         this.resetForm();
         this.setType(type);
+        const userId = Auth.currentUser || 'nadia';
         document.getElementById('inv-objetivo').value = objetivoId;
+        document.getElementById('inv-user').value = userId;
+        document.getElementById('inv-date').value = Utils.todayStr();
+        if (type === 'aporte') {
+            const o = this.objetivos.find(x => x.id === objetivoId);
+            const target = o ? this.getCardTarget(o, userId, this.monthPrefix()) : 0;
+            if (target > 0) document.getElementById('inv-amount').value = target;
+        }
         document.getElementById('inv-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
 
-    async editMove(m) {
+    editMove(m) {
         document.getElementById('inv-id').value = m.id;
         document.getElementById('inv-form-title').textContent = 'Editar movimiento';
         this.setType(m.type || 'aporte');
         this.updateObjetivoSelect();
         document.getElementById('inv-objetivo').value = m.objetivoId;
         document.getElementById('inv-user').value = m.userId || 'nadia';
-        document.getElementById('inv-amount').value = m.currency === 'USD' ? this.arsValue(m) : m.amount;
+        document.getElementById('inv-amount').value = this.arsValue(m);
         document.getElementById('inv-date').value = m.date;
         document.getElementById('inv-description').value = m.description || '';
-
-        this.updatePreview();
         document.getElementById('inv-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
 
@@ -484,8 +582,8 @@ const Inversiones = {
         if (submitBtn) submitBtn.disabled = true;
 
         try {
-            const amountARS = Math.round(amount * 100) / 100;
-            const data = { userId, objetivoId, type, currency: 'ARS', amount, amountARS, date, description, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
+            const amountARS = this.round2(amount);
+            const data = { userId, objetivoId, type, amount, amountARS, date, description, createdAt: firebase.firestore.FieldValue.serverTimestamp() };
 
             let idFinal;
             if (id) {
@@ -529,7 +627,7 @@ const Inversiones = {
             amount: data.amountARS,
             categoryId: catId,
             subcategoryId: '',
-            description: `Inversión: ${(obj && obj.name) || 'objetivo'}`,
+            description: `Inversión: ${(obj && obj.name) || 'inversión'}`,
             date: data.date,
             paymentMethod: 'debito',
             paid: true,
@@ -539,19 +637,10 @@ const Inversiones = {
         });
     },
 
-    async _deleteLinked(linked) {
-        if (!linked) return;
-        try {
-            await db.collection(linked.col).doc(linked.id).delete();
-        } catch (e) {
-            console.error('Error deleting linked discount:', e);
-        }
-    },
-
     async syncDiscount(aporteId, obj, data) {
         const linked = await this._findLinked(aporteId);
         const catId = await this.getInversionExpenseCategoryId();
-        const desc = `Inversión: ${(obj && obj.name) || 'objetivo'}`;
+        const desc = `Inversión: ${(obj && obj.name) || 'inversión'}`;
         if (linked) {
             await db.collection('transactions').doc(linked.id).update({
                 userId: data.userId, amount: data.amountARS, categoryId: catId, subcategoryId: '',
@@ -565,14 +654,20 @@ const Inversiones = {
     },
 
     async getInversionExpenseCategoryId() {
+        const savedId = this.settings.catGastoInversionId;
+        if (savedId && typeof Categories !== 'undefined' && Categories.getById(savedId)) return savedId;
         const existing = (typeof Categories !== 'undefined' ? Categories.list : [])
             .find(c => c.type === 'expense' && c.name && c.name.trim().toLowerCase() === 'inversiones');
-        if (existing) return existing.id;
+        if (existing) {
+            await this.saveSettings({ catGastoInversionId: existing.id });
+            return existing.id;
+        }
         try {
             const ref = await db.collection('categories').add({
                 name: 'Inversiones', icon: 'fa-chart-line', color: '#16A085', type: 'expense',
                 kind: 'fixed', subcategories: []
             });
+            await this.saveSettings({ catGastoInversionId: ref.id });
             if (typeof Categories !== 'undefined' && Categories.load) await Categories.load();
             if (typeof Categories !== 'undefined' && Categories.updateFilterSelect) Categories.updateFilterSelect();
             if (typeof Categories !== 'undefined' && Categories.renderGrid) Categories.renderGrid();
@@ -631,23 +726,84 @@ const Inversiones = {
         }
     },
 
+    async deleteObjetivoData(id) {
+        const aportesSnap = await db.collection('inversion_aportes').where('objetivoId', '==', id).get();
+        for (const d of aportesSnap.docs) {
+            const txSnap = await db.collection('transactions').where('inversionAporteId', '==', d.id).get();
+            await Promise.all(txSnap.docs.map(t => t.ref.delete()));
+            await d.ref.delete();
+        }
+        await db.collection('inversion_objetivos').doc(id).delete();
+    },
+
+    async deleteObjetivo(id) {
+        const o = this.objetivos.find(x => x.id === id);
+        if (!o) return;
+        const n = this.aportes.filter(a => a.objetivoId === id).length;
+        const msg = n > 0
+            ? `¿Eliminar "${o.name}"? Se borran también sus ${n} aporte${n === 1 ? '' : 's'} y el descuento que hicieron en Gastos.`
+            : `¿Eliminar "${o.name}"?`;
+        if (!confirm(msg)) return;
+        try {
+            await this.deleteObjetivoData(id);
+            this.objetivos = this.objetivos.filter(x => x.id !== id);
+            this.aportes = this.aportes.filter(a => a.objetivoId !== id);
+            App.toast('Inversión eliminada', 'success');
+            this.updateObjetivoSelect();
+            this.render();
+            if (typeof Transactions !== 'undefined' && Transactions.load) await Transactions.load();
+            if (App.currentPage === 'home') Dashboard.refresh();
+        } catch (e) {
+            console.error(e);
+            App.toast('Error al eliminar', 'error');
+        }
+    },
+
+    _fillObjetivoForm(o) {
+        const metSel = document.getElementById('io-metodo');
+        metSel.innerHTML = this.INSTRUMENTOS.map(i => `<option value="${i.id}">${i.label}</option>`).join('');
+        metSel.value = o.metodo || 'otro';
+        document.getElementById('io-name').value = o.name || '';
+        document.getElementById('io-color').value = o.color || '#6C63FF';
+        document.getElementById('io-pct-nadia').value = this.pctFor(o, 'nadia');
+        document.getElementById('io-pct-elias').value = this.pctFor(o, 'elias');
+        document.getElementById('io-detalle').value = o.metodoDetalle || '';
+        document.getElementById('io-plazo').value = o.plazo || '';
+        document.getElementById('io-lock').value = o.lockMeses || 0;
+        document.getElementById('io-freq').value = o.freqRetiroMeses || 0;
+        this.selectedIcon = o.icon || this.INV_ICONS[0];
+        Categories.renderIconPicker('inv-icon-picker', this.selectedIcon, (i) => { this.selectedIcon = i; }, this.INV_ICONS);
+    },
+
+    _setLockBaseInfo(id) {
+        const o = this.objetivos.find(x => x.id === id);
+        const el = document.getElementById('io-base');
+        if (!el) return;
+        if (!o) {
+            el.textContent = 'El bloqueo se cuenta desde tu primer aporte a esta inversión.';
+            return;
+        }
+        const base = this.firstAporteDate(o.id);
+        el.textContent = base
+            ? lockBaseInfo(base, o.lockMeses || 0, this)
+            : 'Sin aportes todavía: el plazo de bloqueo empieza a contar con tu primer aporte.';
+    },
+
     openEditObjetivo(objetivoId) {
         const o = this.objetivos.find(x => x.id === objetivoId);
         if (!o) return;
         document.getElementById('inv-obj-id').value = o.id;
         document.getElementById('inv-obj-title').textContent = `Editar: ${o.name}`;
-        const metSel = document.getElementById('io-metodo');
-        metSel.innerHTML = this.INSTRUMENTOS.map(i => `<option value="${i.id}">${i.label}</option>`).join('');
-        metSel.value = o.metodo || 'otro';
-        document.getElementById('io-pct').value = o.pct != null ? o.pct : '';
-        document.getElementById('io-plazo').value = o.plazo || '';
-        document.getElementById('io-detalle').value = o.metodoDetalle || '';
-        document.getElementById('io-lock').value = o.lockMeses || 0;
-        document.getElementById('io-freq').value = o.freqRetiroMeses || 0;
-        const base = this.firstAporteDate(o.id);
-        document.getElementById('io-base').textContent = base
-            ? (lockBaseInfo(base, o.lockMeses || 0, this))
-            : 'Sin aportes todavía: el plazo empieza a contar con tu primer aporte.';
+        this._fillObjetivoForm(o);
+        this._setLockBaseInfo(o.id);
+        document.getElementById('inv-obj-modal').classList.remove('hidden');
+    },
+
+    openNewObjetivo() {
+        document.getElementById('inv-obj-id').value = '';
+        document.getElementById('inv-obj-title').textContent = 'Nueva inversión';
+        this._fillObjetivoForm({ icon: this.INV_ICONS[0], color: '#6C63FF' });
+        this._setLockBaseInfo(null);
         document.getElementById('inv-obj-modal').classList.remove('hidden');
     },
 
@@ -655,34 +811,52 @@ const Inversiones = {
         document.getElementById('inv-obj-modal').classList.add('hidden');
     },
 
+    _warnPctSums(nombre) {
+        const fuera = this.USERS.filter(u => this.pctSum(u.id) !== 100);
+        if (fuera.length === 0) return;
+        App.toast(`Guardado. Ojo: los porcentajes de ${fuera.map(u => u.name).join(' y ')} no suman 100%`, 'info');
+    },
+
     async saveObjetivo() {
         const id = document.getElementById('inv-obj-id').value;
-        const o = this.objetivos.find(x => x.id === id);
-        if (!o) return;
-        const pct = parseFloat(document.getElementById('io-pct').value);
-        if (isNaN(pct) || pct < 0 || pct > 100) {
-            App.toast('Porcentaje inválido (0 a 100)', 'error');
+        const name = document.getElementById('io-name').value.trim();
+        if (!name) {
+            App.toast('Poné un nombre para la inversión', 'error');
             return;
         }
         const patch = {
-            pct,
-            plazo: document.getElementById('io-plazo').value.trim() || null,
+            name,
+            icon: this.selectedIcon,
+            color: document.getElementById('io-color').value || '#6C63FF',
+            pctNadia: this.clampPct(document.getElementById('io-pct-nadia').value, 0),
+            pctElias: this.clampPct(document.getElementById('io-pct-elias').value, 0),
             metodo: document.getElementById('io-metodo').value,
             metodoDetalle: document.getElementById('io-detalle').value.trim(),
-            monedaSugerida: 'ARS',
+            plazo: document.getElementById('io-plazo').value.trim() || null,
             lockMeses: Math.max(0, parseInt(document.getElementById('io-lock').value, 10) || 0),
             freqRetiroMeses: Math.max(0, parseInt(document.getElementById('io-freq').value, 10) || 0)
         };
         try {
-            await db.collection('inversion_objetivos').doc(id).update(patch);
-            Object.assign(o, patch);
-            const total = this.objetivos.reduce((s, x) => s + (x.pct || 0), 0);
-            if (total !== 100) App.toast(`Guardado. Ojo: los porcentajes suman ${total}%`, 'info');
-            else App.toast('Objetivo actualizado', 'success');
+            if (id) {
+                const o = this.objetivos.find(x => x.id === id);
+                if (!o) return;
+                await db.collection('inversion_objetivos').doc(id).update(patch);
+                Object.assign(o, patch);
+                App.toast('Inversión actualizada', 'success');
+            } else {
+                const order = this.objetivos.reduce((m, o) => Math.max(m, o.order || 0), 0) + 1;
+                const ref = await db.collection('inversion_objetivos').add({ ...patch, order, startDate: Utils.todayStr() });
+                this.objetivos.push({ id: ref.id, ...patch, order, startDate: Utils.todayStr() });
+                App.toast('Inversión creada', 'success');
+            }
+            this.objetivos.sort((a, b) => (a.order || 99) - (b.order || 99));
             this.closeObjModal();
+            this.updateObjetivoSelect();
             this.render();
+            this._warnPctSums(name);
         } catch (e) {
-            App.toast('Error al actualizar', 'error');
+            console.error('Error guardando la inversión:', e);
+            App.toast('Error al guardar', 'error');
         }
     }
 };

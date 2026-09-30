@@ -232,14 +232,21 @@
             <div class="page" id="page-inversiones">
                 <div class="card">
                     <div class="card-title">Distribución mensual</div>
-                    <div style="margin-bottom:16px">
-                        <input type="month" class="form-control" id="inversiones-month" style="max-width:220px">
+                    <div class="inv-filters">
+                        <input type="month" class="form-control" id="inversiones-month">
+                        <div class="inv-pct-field">
+                            <label for="inv-pct-global">% a invertir</label>
+                            <input type="number" class="form-control" id="inv-pct-global" min="0" max="100" step="1">
+                        </div>
                     </div>
                     <div id="inv-summary"></div>
                 </div>
 
                 <div class="card">
-                    <div class="card-title">Objetivos</div>
+                    <div class="card-title card-head-row">
+                        <span>Inversiones</span>
+                        <button class="btn btn-sm btn-primary" id="inv-new-obj"><i class="fas fa-plus"></i> Nueva inversión</button>
+                    </div>
                     <div id="inv-objetivos"></div>
                 </div>
 
@@ -288,8 +295,6 @@
                                 <input type="text" class="form-control" id="inv-description" placeholder="Opcional">
                             </div>
                         </div>
-
-                        <div class="ahorro-preview" id="inv-preview"></div>
 
                         <div class="form-actions">
                             <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar</button>
@@ -419,30 +424,36 @@
     </div>
 </div>
 
-<!-- Editar objetivo de inversión Modal -->
+<!-- Crear / editar inversión Modal -->
 <div class="modal hidden" id="inv-obj-modal">
     <div class="modal-overlay"></div>
     <div class="modal-content">
         <div class="modal-header">
-            <h3 id="inv-obj-title">Editar objetivo</h3>
+            <h3 id="inv-obj-title">Nueva inversión</h3>
             <button class="modal-close"><i class="fas fa-times"></i></button>
         </div>
         <form id="inv-obj-form">
             <input type="hidden" id="inv-obj-id">
+            <div class="form-group"><label>Nombre</label><input type="text" class="form-control" id="io-name" placeholder="Ej: Fondo de emergencia" maxlength="40" required></div>
             <div class="form-row">
-                <div class="form-group"><label>% mensual</label><input type="number" min="0" max="100" step="0.5" class="form-control" id="io-pct" required></div>
+                <div class="form-group"><label>Color</label><input type="color" id="io-color" value="#6C63FF"></div>
+                <div class="form-group"><label>Plazo (texto)</label><input type="text" class="form-control" id="io-plazo" placeholder="Ej: 2 años" maxlength="20"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>% de Nadia</label><input type="number" min="0" max="100" step="0.5" class="form-control" id="io-pct-nadia" required></div>
+                <div class="form-group"><label>% de Elias</label><input type="number" min="0" max="100" step="0.5" class="form-control" id="io-pct-elias" required></div>
             </div>
             <div class="form-group">
                 <label>Método de inversión</label>
                 <select class="form-control" id="io-metodo"></select>
             </div>
             <div class="form-group"><label>Detalle (broker / billetera / banco)</label><input type="text" class="form-control" id="io-detalle" placeholder="Ej: Balanz, Mercado Pago, Naranja X..." maxlength="60"></div>
-            <div class="form-group"><label>Plazo (texto)</label><input type="text" class="form-control" id="io-plazo" placeholder="Ej: 2 años" maxlength="20"></div>
             <div class="form-row">
                 <div class="form-group"><label>Bloqueo (meses desde 1er aporte)</label><input type="number" min="0" max="600" step="1" class="form-control" id="io-lock"></div>
                 <div class="form-group"><label>Ventana retiro (cada X meses)</label><input type="number" min="0" max="120" step="1" class="form-control" id="io-freq"></div>
             </div>
             <p class="io-base-info" id="io-base"></p>
+            <div class="form-group"><label>Ícono</label><div class="icon-picker" id="inv-icon-picker"></div></div>
             <button type="submit" class="btn btn-primary btn-block" style="margin-top:12px"><i class="fas fa-save"></i> Guardar</button>
         </form>
     </div>

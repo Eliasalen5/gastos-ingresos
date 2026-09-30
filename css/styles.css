@@ -1267,7 +1267,6 @@ canvas { max-height: 250px; }
     gap: 8px;
 }
 .inv-cobro-row b { color: var(--success); }
-.ahorro-target .progress-bar { margin-top: 10px; }
 .target-footer { display: flex; gap: 8px; margin-top: 12px; }
 .target-footer .btn { flex: 1; }
 
@@ -1290,12 +1289,52 @@ canvas { max-height: 250px; }
     outline-offset: 2px;
 }
 
-.ahorro-preview {
-    font-size: 0.82rem;
-    color: var(--primary);
-    font-weight: 600;
-    margin-top: 4px;
+.inv-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 16px;
 }
+.inv-filters > .form-control { max-width: 220px; }
+.inv-pct-field { display: flex; flex-direction: column; gap: 6px; }
+.inv-pct-field label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    font-weight: 600;
+}
+.inv-pct-field .form-control { width: 110px; text-align: center; }
+
+.card-head-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.card-head-row > span { text-transform: inherit; letter-spacing: inherit; }
+
+.inv-target-name { min-width: 0; overflow-wrap: anywhere; }
+.inv-target-actions { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.inv-split {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+.inv-split-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 0.85rem;
+    padding: 3px 0;
+}
+.inv-split-name { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.inv-split-value { text-align: right; font-weight: 600; }
+.inv-split-value .muted { font-weight: 400; font-size: 0.78rem; }
+.inv-acum { color: var(--success); }
 
 .grupal-legend {
     display: flex;
@@ -1335,19 +1374,6 @@ canvas { max-height: 250px; }
 }
 .cat-detail-total span:last-child { color: var(--error); }
 
-.inv-target .progress-bar { margin-top: 10px; }
-.inv-bar { position: relative; }
-.inv-bar-marker {
-    position: absolute;
-    top: -2px;
-    bottom: -2px;
-    width: 2px;
-    background: var(--text);
-    opacity: 0.55;
-    border-radius: 1px;
-}
-.inv-pct-edit { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; }
-.inv-pct-edit:hover { color: var(--text); }
 .inv-metodo {
     display: flex;
     align-items: center;
@@ -1409,9 +1435,13 @@ canvas { max-height: 250px; }
 
     /* Textos largos sin desbordar */
     .target-header { flex-wrap: wrap; gap: 4px; }
-    .inv-pct-edit { flex-wrap: wrap; white-space: normal; }
     .target-row { font-size: 0.8rem; }
     .target-row span:first-child { overflow-wrap: anywhere; text-align: left; }
+    .inv-split-row { flex-wrap: wrap; gap: 2px 10px; }
+    .inv-split-value { text-align: left; }
+    .inv-filters { gap: 8px; }
+    .inv-filters > .form-control { max-width: 100%; }
+    .inv-pct-field .form-control { width: 96px; }
     .user-bar-group div { flex-wrap: wrap; gap: 4px; }
     .pago-month-label { flex-wrap: wrap; min-width: 0; }
 

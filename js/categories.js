@@ -114,7 +114,6 @@ const Categories = {
         { id: 'cat_otros_g', name: 'Otros gastos', icon: 'fa-tag', color: '#95A5A6', type: 'expense', kind: 'variable', subcategories: [] },
         { id: 'cat_salario', name: 'Salario', icon: 'fa-briefcase', color: '#2ECC71', type: 'income', subcategories: [] },
         { id: 'cat_freelance', name: 'Freelance', icon: 'fa-coins', color: '#27AE60', type: 'income', subcategories: [] },
-        { id: 'cat_inversiones', name: 'Inversiones', icon: 'fa-chart-line', color: '#16A085', type: 'income', subcategories: [] },
         { id: 'cat_otros_i', name: 'Otros ingresos', icon: 'fa-hand-holding-usd', color: '#1ABC9C', type: 'income', subcategories: [] }
     ],
 
@@ -189,10 +188,10 @@ const Categories = {
         document.querySelectorAll('#sub-kind-toggle .seg-opt').forEach(b => b.classList.toggle('active', b.dataset.kind === value));
     },
 
-    renderIconPicker(pickerId, current, onPick) {
+    renderIconPicker(pickerId, current, onPick, icons) {
         const picker = document.getElementById(pickerId);
         if (!picker) return;
-        picker.innerHTML = this.ICONS.map(i =>
+        picker.innerHTML = (icons || this.ICONS).map(i =>
             `<button type="button" class="icon-option ${i === current ? 'selected' : ''}" data-icon="${i}"><i class="fas ${i}"></i></button>`
         ).join('');
         picker.querySelectorAll('.icon-option').forEach(btn => {
@@ -223,12 +222,34 @@ const Categories = {
                 }
                 this.list = [...this.DEFAULTS];
             } else {
+                await this._dropLegacyInversiones();
                 await this._backfill();
             }
         } catch (e) {
             console.error('Error loading categories:', e);
             this.list = [...this.DEFAULTS];
         }
+    },
+
+    async _dropLegacyInversiones() {
+        const legacy = this.list.filter(c =>
+            c.type === 'income' && c.name && c.name.trim().toLowerCase() === 'inversiones');
+        if (legacy.length === 0) return;
+        const ids = [];
+        for (const c of legacy) {
+            try {
+                const used = await db.collection('transactions').where('categoryId', '==', c.id).limit(1).get();
+                if (!used.empty) {
+                    console.warn(`Categoría de ingresos "Inversiones" (${c.id}) tiene movimientos: no se eliminó.`);
+                    continue;
+                }
+                await db.collection('categories').doc(c.id).delete();
+                ids.push(c.id);
+            } catch (e) {
+                console.error('No se pudo eliminar la categoría de ingresos "Inversiones":', e);
+            }
+        }
+        if (ids.length) this.list = this.list.filter(c => !ids.includes(c.id));
     },
 
     async _backfill() {
