@@ -169,6 +169,8 @@ body {
 .nav-expense.active { background: rgba(231,76,60,0.15) !important; color: var(--error) !important; }
 .nav-income { color: var(--success) !important; }
 .nav-income.active { background: rgba(46,204,113,0.15) !important; color: var(--success) !important; }
+.nav-super { color: #E67E22 !important; }
+.nav-super.active { background: rgba(230,126,34,0.15) !important; color: #E67E22 !important; }
 .nav-item i { width: 18px; text-align: center; }
 .nav-divider {
     height: 1px;
@@ -1340,6 +1342,40 @@ canvas { max-height: 250px; }
 .inv-lock.free { background: rgba(46,204,113,0.12); color: var(--success); }
 .io-base-info { font-size: 0.78rem; color: var(--muted, #888); margin: 4px 0 0; }
 
+/* ── Supermercado ── */
+.super-amt.pos { color: var(--success); }
+.super-amt.neg { color: var(--error); }
+.super-saldo-card { border-color: rgba(108,99,255,0.45); }
+.super-saldo-card .value { font-size: 1.25rem; }
+.super-user-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.72rem;
+    flex-wrap: wrap;
+}
+.super-home {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.super-home-info { min-width: 0; }
+.super-home-label { font-size: 0.75rem; color: var(--muted); margin-bottom: 2px; }
+.super-home-amount { font-size: 1.35rem; font-weight: 700; overflow-wrap: anywhere; }
+.super-home-amount.pos { color: var(--success); }
+.super-home-amount.neg { color: var(--error); }
+.super-home-meta { font-size: 0.75rem; margin-top: 2px; }
+.super-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    background: rgba(230,126,34,0.18);
+    color: #E67E22;
+    padding: 1px 6px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
 /* ══════ Mobile refinements ══════ */
 @media (max-width: 768px) {
     html { -webkit-text-size-adjust: 100%; }
@@ -1453,6 +1489,13 @@ canvas { max-height: 250px; }
 
     /* Icon picker denso */
     .icon-option { width: 34px; height: 34px; }
+
+    /* Supermercado */
+    #super-kind-toggle { display: flex; width: 100%; }
+    #super-kind-toggle .seg-opt { flex: 1 1 0; }
+    .super-saldo-card .value { font-size: 1.05rem; }
+    .super-home-amount { font-size: 1.2rem; }
+    .super-user-meta { flex-direction: column; gap: 2px; }
 }
 
 @media (max-width: 400px) {

@@ -73,10 +73,11 @@ const Dashboard = {
         document.getElementById('income-amount').textContent = Utils.formatMoney(income);
         document.getElementById('expense-amount').textContent = Utils.formatMoney(expense);
 
-        this.renderFixedVariable(txs.filter(t => t.type === 'expense' && t.paid !== false));
+        this.renderFixedVariable(txs.filter(t => t.type === 'expense' && t.paid !== false && !Transactions.isTransfer(t)));
         this.renderCategoryChart(userId, prefix);
         this.renderRecent(userId, prefix);
         this.renderPendingWidget();
+        Supermercado.renderHomeWidget(prefix);
         Notifications.renderWidget();
     },
 
@@ -165,7 +166,7 @@ const Dashboard = {
     },
 
     renderCategoryChart(userId, prefix) {
-        const txs = Transactions.list.filter(tx => tx.type === 'expense' && tx.paid !== false && tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(prefix));
+        const txs = Transactions.list.filter(tx => tx.type === 'expense' && tx.paid !== false && !Transactions.isTransfer(tx) && tx.userId === userId && typeof tx.date === 'string' && tx.date.startsWith(prefix));
         const entries = this._groupBy(this.chartMode, txs);
         const labels = entries.map(c => c.name);
         const data = entries.map(c => c.total);
@@ -329,7 +330,7 @@ const Dashboard = {
             const key = `grupalCat_${userId}`;
             this.destroyChart(key);
 
-            const paid = txs.filter(tx => tx.type === 'expense' && tx.paid !== false && tx.userId === userId);
+            const paid = txs.filter(tx => tx.type === 'expense' && tx.paid !== false && !Transactions.isTransfer(tx) && tx.userId === userId);
             const entries = this._groupBy('category', paid);
             const labels = entries.map(c => c.name);
             const data = entries.map(c => c.total);

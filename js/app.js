@@ -27,6 +27,7 @@ const App = {
         Categories.updateFilterSelect();
         await Transactions.init();
         await Inversiones.init();
+        await Supermercado.init();
         Dashboard.init();
         Notifications.init();
         this.navigate('home');
@@ -69,7 +70,7 @@ const App = {
         document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.page === page));
         document.querySelectorAll('.bottom-nav-item').forEach(i => i.classList.toggle('active', i.dataset.page === page));
 
-        const titles = { home: 'Home', gastos: 'Gastos', ingresos: 'Ingresos', inversiones: 'Inversiones', comparativa: 'Comparativa', 'nuevo-gasto': 'Nuevo Gasto', pagos: 'Pagos', categorias: 'Categorías' };
+        const titles = { home: 'Home', gastos: 'Gastos', ingresos: 'Ingresos', inversiones: 'Inversiones', supermercado: 'Supermercado', comparativa: 'Comparativa', 'nuevo-gasto': 'Nuevo Gasto', pagos: 'Pagos', categorias: 'Categorías' };
         document.getElementById('page-title').textContent = titles[page] || page;
         document.getElementById('sidebar')?.classList.remove('open');
         document.getElementById('sidebar-overlay')?.classList.remove('open');
@@ -82,6 +83,7 @@ const App = {
             case 'gastos': Transactions.renderList(); break;
             case 'ingresos': this.renderIngresos(); break;
             case 'inversiones': Inversiones.refresh(); break;
+            case 'supermercado': Supermercado.render(); break;
             case 'comparativa': Dashboard.renderGrupal(); break;
             case 'nuevo-gasto':
                 if (!document.getElementById('tx-id').value) Transactions.resetForm();

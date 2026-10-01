@@ -243,16 +243,23 @@ const Transactions = {
     },
 
     async deleteTx(id) {
-        if (!confirm('¿Eliminar transacción?')) return;
+        const doc = await db.collection('transactions').doc(id).get();
+        const data = doc.data();
+        if (data && this.isTransfer(data)) {
+            const ok = confirm('Este aporte al súper también se borra del Supermercado. ¿Eliminar?');
+            if (!ok) return;
+        } else if (!confirm('¿Eliminar transacción?')) return;
         try {
-            const doc = await db.collection('transactions').doc(id).get();
-            const data = doc.data();
             await db.collection('transactions').doc(id).delete();
             if (data && data.receiptUrl) {
                 await StorageManager.delete(data.receiptUrl);
             }
-            App.toast('Eliminada', 'success');
-            await this.load();
+            if (data && this.isTransfer(data) && data.superMovId) {
+                await Supermercado.deleteMovimiento(data.superMovId, { skipTx: true, skipConfirm: true });
+            } else {
+                App.toast('Eliminada', 'success');
+                await this.load();
+            }
         } catch (e) {
             App.toast('Error al eliminar', 'error');
         }
@@ -312,6 +319,11 @@ const Transactions = {
     },
 
     editTx(tx) {
+        if (this.isTransfer(tx)) {
+            App.toast('Los aportes al súper se editan desde la página Supermercado', 'info');
+            App.navigate('supermercado');
+            return;
+        }
         App.navigate('nuevo-gasto');
         document.getElementById('tx-id').value = tx.id;
         document.getElementById('tx-form-title').textContent = 'Editar Transacción';
@@ -397,6 +409,11 @@ const Transactions = {
         return this.list.filter(tx => tx.type === 'expense' && tx.paid === false);
     },
 
+    /** Traspasos de plata a otro bolsillo (hoy, el supermercado). */
+    isTransfer(tx) {
+        return !!tx && tx.origen === 'super';
+    },
+
     _dayLabel(dateKey) {
         if (!dateKey || dateKey === 'sin-fecha') return 'Sin fecha';
         const today = Utils.todayStr();
@@ -415,6 +432,7 @@ const Transactions = {
         const catIcon = cat ? cat.icon : 'fa-tag';
         const paidBadge = tx.paid === false ? '<span class="pending-badge">Pendiente</span>' : '';
         const instBadge = tx.installments >= 1 ? ` <span class="inst-badge">Cuota ${tx.installmentNum}/${tx.installments}</span>` : '';
+        const superBadge = this.isTransfer(tx) ? ' <span class="super-badge">Al súper</span>' : '';
         const receiptBtn = tx.receiptUrl
             ? `<button class="icon-btn receipt-btn" data-receipt="${Utils.esc(tx.receiptUrl)}" title="Ver comprobante"><i class="fas fa-image"></i></button>`
             : '';
@@ -423,7 +441,7 @@ const Transactions = {
             <div class="tx-item">
                 <div class="tx-icon" style="background:${catColor}"><i class="fas ${catIcon}"></i></div>
                 <div class="tx-info">
-                    <div class="tx-desc">${Utils.esc(tx.description || (cat ? cat.name : ''))} ${paidBadge}${instBadge}</div>
+                    <div class="tx-desc">${Utils.esc(tx.description || (cat ? cat.name : ''))} ${paidBadge}${instBadge}${superBadge}</div>
                     <div class="tx-meta">${Utils.esc(cat ? cat.name : '')}</div>
                 </div>
                 <div class="tx-right">
