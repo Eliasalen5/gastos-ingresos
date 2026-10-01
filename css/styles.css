@@ -1040,14 +1040,6 @@ canvas { max-height: 250px; }
 
     /* Modals tighter padding */
     .modal { padding: 12px; }
-
-    /* Notification bigger tap target */
-    .notif-btn {
-        padding: 8px;
-        font-size: 1.2rem;
-        touch-action: manipulation;
-    }
-    .notif-badge { top: 2px; right: 2px; }
 }
 
 @media (max-width: 400px) {
@@ -1367,6 +1359,29 @@ canvas { max-height: 250px; }
     }
     .content { padding-bottom: calc(var(--bottom-h) + env(safe-area-inset-bottom, 0px) + 16px); }
     #toast-container { bottom: calc(var(--bottom-h) + env(safe-area-inset-bottom, 0px) + 12px); }
+
+    /* Safe area arriba: con status-bar-style black-translucent la app se dibuja
+       debajo de la barra de estado, asi que el topbar quedaria tapado */
+    .topbar {
+        height: calc(var(--topbar-h) + env(safe-area-inset-top, 0px));
+        padding-top: env(safe-area-inset-top, 0px);
+    }
+    .login-screen { padding-top: calc(15vh + env(safe-area-inset-top, 0px)); }
+    .sidebar { padding-top: calc(20px + env(safe-area-inset-top, 0px)); }
+
+    /* Hamburguesa y campanita: target tactil de 44px, no 32/35 */
+    #menu-toggle { width: 44px; height: 44px; }
+    .notif-btn {
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: manipulation;
+    }
+    .notif-badge { top: 3px; right: 3px; }
 
     /* Modales como bottom sheet */
     .modal { align-items: flex-end; padding: 0; }
