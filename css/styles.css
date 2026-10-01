@@ -346,32 +346,6 @@ body {
 .stat-card .label { font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
 .stat-card .value { font-size: 1.1rem; font-weight: 700; }
 
-/* ── Tabs ── */
-.tabs {
-    display: flex;
-    gap: 4px;
-    background: var(--surface2);
-    border-radius: 8px;
-    padding: 4px;
-    margin-bottom: 16px;
-}
-.tab-btn, .dash-tab {
-    flex: 1;
-    padding: 8px 12px;
-    border: none;
-    background: none;
-    color: var(--muted);
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.85rem;
-    transition: all 0.15s;
-}
-.tab-btn.active, .dash-tab.active {
-    background: var(--primary);
-    color: #fff;
-}
-
 /* ── Transaction Items ── */
 .tx-item {
     display: flex;
@@ -493,7 +467,7 @@ body {
 }
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:hover { background: #5a52e0; }
-.btn:focus-visible, .icon-btn:focus-visible, .nav-item:focus-visible, .bottom-nav-item:focus-visible, .user-btn:focus-visible, .dash-tab:focus-visible, .pay-btn:focus-visible, .type-btn:focus-visible {
+.btn:focus-visible, .icon-btn:focus-visible, .nav-item:focus-visible, .bottom-nav-item:focus-visible, .user-btn:focus-visible, .pay-btn:focus-visible, .type-btn:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
 }
@@ -815,24 +789,6 @@ input[type="color"] { width: 40px; height: 36px; border: none; cursor: pointer; 
 .icon-option.selected { border-color: var(--primary); color: var(--primary); background: rgba(108,99,255,0.15); }
 
 /* ── Installments Page ── */
-.inst-group {
-    background: var(--surface);
-    border-radius: var(--radius);
-    border: 1px solid var(--border);
-    margin-bottom: 12px;
-    overflow: hidden;
-}
-.inst-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    color: #fff;
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-.inst-header-left { display: flex; align-items: center; gap: 8px; }
-.inst-header-right { display: flex; align-items: center; gap: 10px; }
 .inst-row {
     display: flex;
     justify-content: space-between;
@@ -842,7 +798,6 @@ input[type="color"] { width: 40px; height: 36px; border: none; cursor: pointer; 
 }
 .inst-row:last-child { border-bottom: none; }
 .inst-month { font-size: 0.85rem; font-weight: 600; }
-.inst-desc { font-size: 0.78rem; color: var(--muted); }
 .inst-amount { font-size: 0.9rem; }
 
 /* ── Empty State ── */
@@ -1187,7 +1142,7 @@ canvas { max-height: 250px; }
 
 /* ── Touch UX (todas las pantallas táctiles) ── */
 .btn, .icon-btn, .nav-item, .bottom-nav-item, .type-btn, .pay-btn,
-.mov-type-btn, .inv-type-btn, .tab-btn, .dash-tab, .user-btn {
+.mov-type-btn, .inv-type-btn, .user-btn {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
 }
@@ -1436,7 +1391,7 @@ canvas { max-height: 250px; }
     .inv-pct-field .form-control { width: 96px; }
     .user-bar-group div { flex-wrap: wrap; gap: 4px; }
     .pago-month-label { flex-wrap: wrap; min-width: 0; }
-    .pago-header, .inst-header, .kv-header, .kv-total { flex-wrap: wrap; gap: 6px 10px; }
+    .pago-header, .kv-header, .kv-total { flex-wrap: wrap; gap: 6px 10px; }
 
     /* Stats en fila compacta: label a la izquierda, valor a la derecha */
     .stats-row { gap: 8px; margin-bottom: 12px; }
@@ -1467,14 +1422,19 @@ canvas { max-height: 250px; }
     /* Wrapping en toggles y grupos de botones */
     .seg-toggle { flex-wrap: wrap; max-width: 100%; }
     .seg-opt { flex: 1 1 auto; text-align: center; }
-    .tabs { gap: 2px; }
-    .tab-btn, .dash-tab { padding: 9px 6px; font-size: 0.8rem; }
+
+    /* El toggle del chart tiene 3 labels largos: 3 columnas parejas en vez de wrap */
+    #chart-mode-toggle {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        width: 100%;
+    }
+    #chart-mode-toggle .seg-opt { padding: 7px 6px; font-size: 0.75rem; white-space: normal; }
 
     /* Grupos de botones más holgados */
-    .mov-type-group { flex-wrap: wrap; }
-    .mov-type-btn { flex: 1 1 calc(50% - 8px); }
-    .type-group, .pay-group, .mov-type-group { flex-wrap: wrap; gap: 6px; }
-    .type-btn, .pay-btn { flex: 1 1 calc(50% - 6px); text-align: center; }
+    .mov-type-group, .type-group, .pay-group { flex-wrap: wrap; gap: 6px; }
+    .mov-type-btn, .type-btn, .pay-btn { flex: 1 1 calc(50% - 3px); text-align: center; }
 
     /* Icon picker denso */
     .icon-option { width: 34px; height: 34px; }
@@ -1482,8 +1442,6 @@ canvas { max-height: 250px; }
 
 @media (max-width: 400px) {
     .card { padding: 14px; }
-    .stat-card { padding: 12px; }
-    .stat-card .value { font-size: 1rem; }
     .modal-content { padding: 14px; padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
     .login-title { font-size: 1.2rem; }
     .user-btn { padding: 18px 22px; }
