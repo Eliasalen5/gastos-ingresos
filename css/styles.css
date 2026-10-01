@@ -1083,13 +1083,6 @@ canvas { max-height: 250px; }
         margin-top: 8px;
     }
 
-    /* Filters: stacked on mobile for full-width */
-    .filters-row {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
     /* Modals tighter padding */
     .modal { padding: 12px; }
 
@@ -1106,7 +1099,6 @@ canvas { max-height: 250px; }
     .bottom-nav-item { font-size: 0.55rem; }
     .bottom-nav-item i { font-size: 0.9rem; }
     .tx-actions .icon-btn { padding: 3px; font-size: 0.72rem; }
-    .filters-row { flex-direction: column; }
 }
 
 @media (min-width: 769px) {
@@ -1444,11 +1436,45 @@ canvas { max-height: 250px; }
     .inv-pct-field .form-control { width: 96px; }
     .user-bar-group div { flex-wrap: wrap; gap: 4px; }
     .pago-month-label { flex-wrap: wrap; min-width: 0; }
+    .pago-header, .inst-header, .kv-header, .kv-total { flex-wrap: wrap; gap: 6px 10px; }
+
+    /* Stats en fila compacta: label a la izquierda, valor a la derecha */
+    .stats-row { gap: 8px; margin-bottom: 12px; }
+    .stat-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 11px 14px;
+    }
+    .stat-card .label { margin-bottom: 0; font-size: 0.72rem; flex-shrink: 0; }
+    .stat-card .value {
+        font-size: 0.98rem;
+        text-align: right;
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    /* Filtros en 2 columnas en vez de 4 apilados (auto-fit: 1 filtro ocupa todo el ancho) */
+    .filters-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 8px;
+        align-items: end;
+    }
+    .filters-row > * { min-width: 0; max-width: none; width: 100%; }
+
+    /* Wrapping en toggles y grupos de botones */
+    .seg-toggle { flex-wrap: wrap; max-width: 100%; }
+    .seg-opt { flex: 1 1 auto; text-align: center; }
+    .tabs { gap: 2px; }
+    .tab-btn, .dash-tab { padding: 9px 6px; font-size: 0.8rem; }
 
     /* Grupos de botones más holgados */
     .mov-type-group { flex-wrap: wrap; }
     .mov-type-btn { flex: 1 1 calc(50% - 8px); }
-    .type-group, .pay-group, .mov-type-group { gap: 6px; }
+    .type-group, .pay-group, .mov-type-group { flex-wrap: wrap; gap: 6px; }
+    .type-btn, .pay-btn { flex: 1 1 calc(50% - 6px); text-align: center; }
 
     /* Icon picker denso */
     .icon-option { width: 34px; height: 34px; }
