@@ -301,6 +301,16 @@ const Inversiones = {
         return this.round2(ars);
     },
 
+    getObjetivoMesUser(objetivoId, prefix, userId) {
+        let ars = 0;
+        this.getMonthAportes(prefix).forEach(a => {
+            if (a.objetivoId !== objetivoId) return;
+            if (userId && a.userId !== userId) return;
+            ars += (a.type === 'retiro' ? -1 : 1) * this.arsValue(a);
+        });
+        return this.round2(ars);
+    },
+
     getTotalEquiv(prefix) {
         return this.round2(this.objetivos.reduce((s, o) => s + this.getObjetivoTotals(o.id, prefix), 0));
     },
@@ -394,9 +404,16 @@ const Inversiones = {
                 const pct = this.pctFor(o, u.id);
                 const target = this.getCardTarget(o, u.id, prefix);
                 const propio = this.getObjetivoAcumulado(o.id, prefix, u.id);
-                const propioHtml = (propio !== 0)
+                let propioHtml = (propio !== 0)
                     ? ` <span class="muted">· ${Utils.formatMoney(propio)} aportados</span>`
                     : '';
+                if (u.id === 'elias') {
+                    const delMesUser = this.getObjetivoMesUser(o.id, prefix, u.id);
+                    const falta = this.round2(target - delMesUser);
+                    propioHtml = ` <span class="muted">· ${Utils.formatMoney(delMesUser)} este mes</span>`
+                        + (falta > 0 ? ` <span class="muted">· falta ${Utils.formatMoney(falta)}</span>` : '')
+                        + propioHtml;
+                }
                 return `<div class="inv-split-row">
                     <span class="inv-split-name"><span class="user-dot" style="background:${u.color}"></span>${u.name} <span class="muted">${pct}%</span></span>
                     <span class="inv-split-value">${Utils.formatMoney(target)}${propioHtml}</span>
